@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/kolan51/flint/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kolan51/flint?style=flat-square&label=stars"></a>
   <a href="https://github.com/kolan51/flint/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/kolan51/flint?style=flat-square&label=release"></a>
-  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, OpenAI, Claude, and DeepSeek" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20OpenAI%20%C2%B7%20Claude%20%C2%B7%20DeepSeek-3d3424?style=flat-square"></a>
+  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, OpenAI, Claude, DeepSeek, and more" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20OpenAI%20%C2%B7%20Claude%20%C2%B7%20more-3d3424?style=flat-square"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kolan51/flint?style=flat-square&label=license"></a>
 </p>
 
@@ -28,17 +28,37 @@ Flint is that place. A desktop chat, a real editor, and a small crew of agents t
 
 <p align="center">
   <a href="https://kolan51.github.io/flint/">
-    <img src="site/images/hero.png" width="920" alt="Flint on the web, with the download and the studio.">
+    <img src="site/images/hero.png" width="920" alt="The current Flint page: download, and the studio window.">
   </a>
 </p>
 
-The [site](https://kolan51.github.io/flint/) is worth a minute. The buttons up top are the installers. The window under them is clickable, so you can poke the agents, the files, and the chat before you install anything.
+The [site](https://kolan51.github.io/flint/) is the same window. The buttons up top are the installers. The picture is the current studio: agents on the left, the file in the middle, the crew in the chat, and the diff underneath.
 
 <p align="center">
-  <img src="site/images/studio.png" width="920" alt="Flint on the desktop: agents, the editor, chat, and a diff.">
+  <img src="site/images/studio.png" width="920" alt="The current Flint window: agents, the file, the crew, and the diff.">
 </p>
 
-On the left, your agents and the folder. In the middle, the file. On the right, the chat. When the bot changes something, the diff sits under the editor. You keep the lines you like and drop the rest.
+## How a job moves
+
+```mermaid
+flowchart LR
+  folder["Your folder"] --- flint["Flint"]
+  flint --> local["Ollama or llama.cpp"]
+  flint --> cloud["OpenAI, Claude, DeepSeek, and the rest"]
+  flint --> diff["The diff you keep"]
+```
+
+One agent can lead. The others take a piece each, in that same folder, on the model you picked.
+
+```mermaid
+flowchart TB
+  senior["Senior"] --> one["Worker"]
+  senior --> two["Worker"]
+  senior --> three["Worker"]
+  one --> folder["Same folder"]
+  two --> folder
+  three --> folder
+```
 
 ## Bring your own brain
 
@@ -48,10 +68,17 @@ Paste the address in Settings and pick it in the title bar.
 | --- | --- |
 | Ollama | `http://127.0.0.1:11434` |
 | llama.cpp or LM Studio | usually `http://127.0.0.1:8080` |
-| ChatGPT | `https://api.openai.com` plus the key |
-| Claude | `https://api.anthropic.com` plus the key |
-| DeepSeek | `https://api.deepseek.com` plus the key |
-| Groq, Gemini, OpenRouter | their address, plus the key |
+| OpenAI | `https://api.openai.com` |
+| Claude | `https://api.anthropic.com` |
+| Gemini | Google's OpenAI-compatible address |
+| DeepSeek | `https://api.deepseek.com` |
+| Grok | `https://api.x.ai` |
+| Mistral | `https://api.mistral.ai` |
+| Groq | `https://api.groq.com/openai/v1` |
+| OpenRouter | `https://openrouter.ai/api` |
+| Together, Fireworks, Cerebras, Cohere | the address in Settings, plus the key |
+
+Pick the name in Settings and Flint fills the address. A cloud one also needs its key. Any other OpenAI-compatible address can be pasted in.
 
 A local model and a cloud API can both sit in the list. Switch them from the title bar whenever you want a different one for the chat.
 
@@ -100,7 +127,7 @@ Flint can ask GitHub if a newer version exists. You can turn that off. If an age
 
 **Does it need an account?** No. Chats, agents, and the model address stay on this computer.
 
-**Which models?** Ollama, llama.cpp, LM Studio, ChatGPT, Claude, and DeepSeek. Groq, Gemini, and OpenRouter too. Several agents can share one. Flint asks the server how many chats it can hold, and stays inside that.
+**Which models?** Ollama and llama.cpp on this machine. OpenAI, Claude, Gemini, DeepSeek, Grok, Mistral, Groq, OpenRouter, Together, Fireworks, Cerebras, and Cohere in the cloud. Several agents can share one. Flint asks the server how many chats it can hold, and stays inside that.
 
 **Where do the edits go?** Into the folder you opened. A change sits in the diff until you keep it. A command does not run until you allow it, unless you have set Allow all.
 
