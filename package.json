@@ -1,0 +1,115 @@
+{
+  "name": "local-bot",
+  "version": "0.1.0",
+  "description": "Open the folder. Leave it there. A desktop studio for a model you already run.",
+  "author": "Flint",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "desktop": "concurrently -k \"npm:dev:client\" \"npm:desktop:app\"",
+    "desktop:app": "wait-on http://127.0.0.1:5173 && electron .",
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test server/gaps.test.js",
+    "pack": "vite build && electron-builder --win"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pyright": "^1.1.414",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/geist-sans": "^5.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^37.2.6",
+    "electron-builder": "^26.15.3",
+    "monaco-editor": "^0.57.0",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.3",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  },
+  "build": {
+    "appId": "dev.flint.desktop",
+    "productName": "Flint",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "server/**",
+      "package.json",
+      "node_modules/pyright/**"
+    ],
+    "extraResources": [
+      {
+        "from": "seed",
+        "to": "seed-data",
+        "filter": [
+          "*.json"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "dist/**",
+      "node_modules/pyright/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.png",
+      "artifactName": "Flint-Setup-${version}.exe",
+      "signExecutable": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "public/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "artifactName": "Flint-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/icon.png",
+      "category": "Development",
+      "artifactName": "Flint-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Flint"
+    }
+  }
+}

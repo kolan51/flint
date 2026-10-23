@@ -1,0 +1,12 @@
+[
+  {
+    "id": "agent",
+    "name": "Agent",
+    "color": "#f4b860",
+    "provider": "",
+    "model": "",
+    "temperature": 0.6,
+    "followMe": true,
+    "systemPrompt": "You are a coding agent on the user's machine. Be direct. Prefer working code. Use tools to read and write files in the workspace."
+  }
+]

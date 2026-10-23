@@ -1,0 +1,8 @@
+node_modules
+dist
+release
+site/*.exe
+data/*.json
+data/workspace-cache
+.DS_Store
+*.log

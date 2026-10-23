@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flint</title>
+    <link rel="icon" href="/icon.png" />
+    <style>
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        background: #10100e;
+        color: #ece7dc;
+        font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+        -webkit-app-region: drag;
+      }
+      .boot-wins {
+        position: fixed;
+        z-index: 50;
+        top: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        height: 40px;
+        padding: 0 8px;
+        -webkit-app-region: no-drag;
+      }
+      .boot-wins button {
+        width: 40px;
+        height: 32px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #ece7dc;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+      .boot-wins button:hover { background: rgba(255, 255, 255, 0.08); }
+      .boot-wins button.close:hover { background: #c44536; color: #fff; }
+      .bw { position: relative; display: block; }
+      .bw.min { width: 11px; height: 1.5px; background: currentColor; border-radius: 1px; }
+      .bw.max { width: 11px; height: 11px; border: 1.5px solid currentColor; border-radius: 2px; }
+      .bw.x { width: 10px; height: 10px; }
+      .bw.x::before, .bw.x::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 10px;
+        height: 1.5px;
+        background: currentColor;
+      }
+      .bw.x::before { transform: rotate(45deg); }
+      .bw.x::after { transform: rotate(-45deg); }
+      .boot-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        width: 300px;
+        padding: 40px 28px 32px;
+        border-radius: 22px;
+        background: #161614;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      }
+      .boot-card img {
+        width: 84px;
+        height: 84px;
+        display: block;
+      }
+      .boot-card b {
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.045em;
+      }
+      .boot-name { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+      .boot-name small {
+        color: #8d8476;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+      }
+      .boot-track {
+        width: 168px;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .boot-track i {
+        display: block;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: #f4b860;
+        animation: flint-boot 1.05s ease-in-out infinite;
+      }
+      #boot-caption {
+        color: #8d8476;
+        font-size: 14px;
+        letter-spacing: -0.01em;
+      }
+      @keyframes flint-boot {
+        0% { transform: translateX(-110%); }
+        100% { transform: translateX(250%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boot-splash" role="status" aria-live="polite">
+      <div class="boot-wins" id="boot-wins">
+        <button type="button" id="boot-min" aria-label="Minimize"><span class="bw min"></span></button>
+        <button type="button" id="boot-max" aria-label="Maximize"><span class="bw max"></span></button>
+        <button type="button" id="boot-close" class="close" aria-label="Close"><span class="bw x"></span></button>
+      </div>
+      <div class="boot-card">
+        <img src="/boot-icon.png" alt="" />
+        <div class="boot-name">
+          <b>Flint</b>
+          <small>0.1.0</small>
+        </div>
+        <div class="boot-track" aria-hidden="true"><i></i></div>
+        <span id="boot-caption">Starting</span>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script>
+      (function () {
+        var desk = window.desktop;
+        var bar = document.getElementById("boot-wins");
+        if (!desk) {
+          if (bar) bar.hidden = true;
+          return;
+        }
+        document.getElementById("boot-min").onclick = function () { desk.minimize(); };
+        document.getElementById("boot-max").onclick = function () { desk.toggleMaximize(); };
+        document.getElementById("boot-close").onclick = function () { desk.close(); };
+      })();
+      window.addEventListener("error", function (event) {
+        var cap = document.getElementById("boot-caption");
+        if (cap && document.getElementById("boot-splash")) cap.textContent = event.message || "Could not start";
+      });
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

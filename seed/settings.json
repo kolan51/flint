@@ -1,0 +1,24 @@
+{
+  "workspace": "",
+  "activeProvider": "",
+  "providers": {},
+  "defaultModel": "",
+  "followMe": {
+    "enabled": false,
+    "agentId": "",
+    "debounceMs": 1600
+  },
+  "search": {
+    "provider": "duckduckgo",
+    "braveKey": ""
+  },
+  "commands": {
+    "mode": "ask",
+    "allow": []
+  },
+  "updates": {
+    "check": true,
+    "repo": "kolan51/flint"
+  },
+  "mcp": []
+}

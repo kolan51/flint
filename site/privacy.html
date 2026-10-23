@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy — Flint</title>
+  <meta name="description" content="What Flint keeps on your computer, and the few requests that leave it." />
+  <link rel="icon" href="icon.png" />
+  <link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+  <header>
+    <a class="brand" href="./">
+      <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#1c1b19"/>
+        <path d="M18 46 L30 18 L34 30 Z" fill="#e39a2e"/>
+        <path d="M34 30 L46 18 L48 40 Z" fill="#f4b860"/>
+      </svg>
+      Flint
+    </a>
+    <nav>
+      <a href="./">Home</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+  </header>
+  <main>
+    <p class="eyebrow">Privacy policy</p>
+    <h1>What stays here.</h1>
+    <p class="updated">22 October 2026</p>
+    <p>Flint is a local coding studio. There is no Flint account, and there is no Flint server that stores your chats or your folder.</p>
+
+    <h2>On this computer</h2>
+    <p>The app writes its own files on the machine where you run it. That includes settings, the model addresses you add, agent names and instructions, chats, notes, and a record of the folder you open. Those files stay in the app’s data folder. They are not uploaded by Flint.</p>
+    <p>The agents can read and change only the folder you open. A command runs on that machine after you allow it, or after you choose to allow commands in that folder.</p>
+
+    <h2>The model you connect</h2>
+    <p>A reply is sent to the address you saved. That can be a server on your own network, Ollama on this PC, or an API you typed in. The request can include the prompt, the open file, and the result of a tool. Flint does not operate that model. If the address belongs to someone else, their privacy policy covers what they do with the request.</p>
+
+    <h2>Search</h2>
+    <p>If an agent searches the web, the query goes to DuckDuckGo. If you add a Brave key in settings, the query and that key go to Brave instead. The key is stored in the local settings file. Search does not run unless the agent uses it.</p>
+
+    <h2>Update check</h2>
+    <p>When update checks are on, the app asks GitHub whether a newer release of <a class="out" href="https://github.com/kolan51/flint">kolan51/flint</a> exists. GitHub sees that connection. The check does not include your chats or the files in your folder. You can turn the check off in Settings.</p>
+
+    <h2>This website</h2>
+    <p>This site is a static page. It does not create a Flint account, it does not set its own cookies, and it does not run analytics. When the home page loads, it asks GitHub’s API for the latest release so the download button can point at an installer. If that request fails, the Windows button uses the installer file next to the page. macOS and Linux buttons stay inactive until a build for them is published.</p>
+
+    <h2>What Flint does not do</h2>
+    <ul>
+      <li>It does not sell personal information.</li>
+      <li>It does not build an advertising profile.</li>
+      <li>It does not require an account to use the app.</li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy go to the project on GitHub: <a class="out" href="https://github.com/kolan51/flint">kolan51/flint</a>. The <a class="out" href="terms.html">general terms</a> sit beside this page.</p>
+  </main>
+  <footer>
+    <span>Flint 0.1.0</span>
+    <div class="footer-links">
+      <a href="./">Home</a>
+      <a href="terms.html">Terms</a>
+      <a href="https://github.com/kolan51/flint/releases">Release notes</a>
+    </div>
+  </footer>
+</body>
+</html>
