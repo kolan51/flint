@@ -1,6 +1,7 @@
 {
   "name": "local-bot",
-  "version": "0.1.3",
+  "version": "0.1.4",
+  "desktopName": "flint.desktop",
   "description": "A desktop app for a local model, or an API you already have.",
   "author": {
     "name": "Jasa Frelih Crv",
@@ -106,7 +107,6 @@
       "icon": "public/icon.png",
       "category": "Development",
       "maintainer": "Jasa Frelih Crv <36926352+kolan51@users.noreply.github.com>",
-      "desktopName": "flint.desktop",
       "syncDesktopName": true,
       "artifactName": "Flint-${version}.${ext}"
     },

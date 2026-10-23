@@ -159,7 +159,7 @@ if (root) {
         ${faceEl(item)}
         <span><b>${esc(item.name)}</b><small class="${/^(Editing|Reading|Waiting)/.test(item.line) ? "doing" : ""}">${esc(item.line)}</small>${chip(item.file)}</span>
         ${item.id === state.agent ? `<button type="button" class="fpen" data-act="edit-agent" aria-label="Edit ${esc(item.name)}" title="Edit">${penSvg}</button><button type="button" class="ftrash" data-act="trash-agent" aria-label="Delete ${esc(item.name)}" title="Delete">${trashSvg}</button>` : ""}
-      </div>`).join("") + (state.session === "Empty chat" ? "" : `<p class="fqueue"><span>Model</span><b>Worker 1</b><span>now</span><span>·</span><b>Worker 3</b><span>next</span></p>`);
+      </div>`).join("");
     const fileIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 2.5h5l3 3V13.5H4z"/><path d="M9 2.5V6h3"/></svg>';
     document.getElementById("files").innerHTML = Object.keys(state.files).map((name) => `
       <button type="button" class="ffile ${name === state.file ? "on" : ""}" data-file="${name}">${fileIcon}${name}</button>`).join("");
@@ -494,7 +494,7 @@ if (walkRoot) {
       title: "Open Flint",
       label: "Open",
       text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. The window is the app. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
-      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.3</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
+      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.4</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
       boot: true,
     },
     {
@@ -605,7 +605,6 @@ if (walkRoot) {
                   <div class="frow-crew" style="--c:#7ec8c8"><span class="fface" style="--c:#7ec8c8">🐢</span><span><b>Worker 1</b><small>Editing calculator.py</small><em>Raise on divide by zero.</em><button type="button" class="ffile-chip" data-wfile="calculator.py">calculator.py</button></span></div>
                   <div class="frow-crew" style="--c:#e07a5f"><span class="fface" style="--c:#e07a5f">🐙</span><span><b>Worker 2</b><small>Reading the tests</small><em>Add the zero case.</em><button type="button" class="ffile-chip" data-wfile="test_calculator.py">test_calculator.py</button></span></div>
                 </div>
-                <p class="fqueue"><span>Model</span><b>Worker 1</b><span>now</span><span>·</span><b>Worker 2</b><span>next</span></p>
                 <div class="fcmd"><code>python -m unittest</code><span class="fcmd-actions"><button type="button" data-wact="run">Run</button><button type="button" data-wact="always">Allow always</button><button type="button" data-wact="skip">Skip</button></span></div>
               </div>
             </div>
