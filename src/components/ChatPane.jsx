@@ -318,20 +318,18 @@ export default function ChatPane() {
           <button type="button" className="session-current" title={sessionTitle} ref={sessionBar} onClick={toggleSessions}>
             <span>{sessionTitle === "New session" ? "Empty chat" : sessionTitle}</span>
           </button>
-          <label className="so-far-inline">
-            <span>So far</span>
-            <input
-              value={soFar}
-              placeholder="What this chat is about"
-              aria-label="So far"
-              onFocus={() => { soFarFocus.current = true; }}
-              onBlur={() => {
-                soFarFocus.current = false;
-                saveSoFar();
-              }}
-              onChange={(event) => setSoFar(event.target.value)}
-            />
-          </label>
+          <input
+            className="so-far-inline"
+            value={soFar}
+            placeholder="So far"
+            aria-label="So far"
+            onFocus={() => { soFarFocus.current = true; }}
+            onBlur={() => {
+              soFarFocus.current = false;
+              saveSoFar();
+            }}
+            onChange={(event) => setSoFar(event.target.value)}
+          />
         </div>,
         sessionSlot,
       )}

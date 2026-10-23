@@ -266,15 +266,15 @@
     .fpane { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; height: auto; min-height: 40px; min-width: 0; padding: 4px 10px 6px; border-bottom: 1px solid #262420; flex: none; }
     .fpane button { height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #8d8476; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
     .fpane button.on { color: #ece7dc; }
-    .fsess-block { flex: 1 0 100%; min-width: 0; display: flex; flex-direction: column; }
-    .fpane .fsess { margin: 0; max-width: none; width: 100%; text-align: left; color: #ece7dc; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fsofar { display: flex; align-items: center; gap: 6px; margin: 0; min-width: 0; }
-    .fsofar span { flex: none; font-size: 12px; font-weight: 500; color: #8d8476; }
+    .fsess-block { flex: 1 0 100%; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .fpane .fsess { margin: 0; max-width: 46%; width: auto; text-align: left; color: #ece7dc; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fsofar { display: flex; align-items: center; margin: 0; min-width: 0; flex: 1; }
     .fsofar input {
-      width: 100%; min-width: 0; height: 24px; border: 0; background: transparent; color: #ece7dc;
+      width: 100%; min-width: 0; height: 24px; border: 0; background: transparent; color: #8d8476;
       font: inherit; font-size: 12px;
     }
-    .fsofar input:focus { outline: none; }
+    .fsofar input::placeholder { color: #6d6458; }
+    .fsofar input:focus { outline: none; color: #ece7dc; }
     .fstatus-actions { display: flex; gap: 4px; margin-left: 12px; }
     .fstatus-actions button {
       height: 22px; padding: 0 8px; border-radius: 6px; color: #8d8476; font-size: 11px;
@@ -643,7 +643,7 @@
             <pre class="fcode" id="code"></pre>
           </section>
           <aside class="fchat">
-            <div class="fpane"><button type="button" class="on">Chat</button><button type="button" data-act="follow">Follow</button><div class="fsess-block"><button type="button" class="fsess" data-act="session">Calculator divide</button><label class="fsofar"><span>So far</span><input id="soFar" aria-label="So far" placeholder="What this chat is about" value="Divide raises on zero"></label></div></div>
+            <div class="fpane"><button type="button" class="on">Chat</button><button type="button" data-act="follow">Follow</button><div class="fsess-block"><button type="button" class="fsess" data-act="session">Calculator divide</button><label class="fsofar"><input id="soFar" aria-label="So far" placeholder="So far" value="Divide raises on zero"></label></div></div>
             <div id="sessionMenu"></div>
             <div class="fmsgs" id="msgs"></div>
             <form class="fcompose" id="compose">
