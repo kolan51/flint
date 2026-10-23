@@ -1,8 +1,11 @@
 {
   "name": "local-bot",
   "version": "0.1.0",
-  "description": "Open the folder. Leave it there. A desktop studio for a model you already run.",
-  "author": "Flint",
+  "description": "A desktop studio for a model server you already run. Senior splits the job. The folder stays put.",
+  "author": {
+    "name": "Jasa Frelih Crv",
+    "email": "36926352+kolan51@users.noreply.github.com"
+  },
   "private": true,
   "type": "module",
   "main": "electron/main.js",

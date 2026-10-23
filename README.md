@@ -5,44 +5,53 @@
 <h1 align="center">Flint</h1>
 
 <p align="center">
-  Open the folder. Leave it there.<br>
-  A senior splits the job. The workers do it on a model you already run.
+  A desktop studio for a model server you already run.<br>
+  Senior splits the job. The workers edit the folder you opened.
 </p>
 
 <p align="center">
-  <img src="site/images/hero.png" width="920" alt="Flint, with the download and the studio">
+  <a href="https://kolan51.github.io/flint/"><strong>Open the site</strong></a>
+  &nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="https://github.com/kolan51/flint/releases/latest">Latest release</a>
+  &nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="LICENSE">MIT</a>
 </p>
+
+The page is live at [kolan51.github.io/flint](https://kolan51.github.io/flint/). It is the front door: the installers, then the studio, and the window on that page answers when you click it.
 
 <p align="center">
-  <img src="site/images/studio.png" width="920" alt="The Flint window: agents, editor, chat, and review">
+  <img src="site/images/hero.png" width="920" alt="The Flint site. Download first, then the studio already on a job.">
 </p>
 
-You already have the model. It is on this machine, or on a box in the room. Flint is the desk it sits at. Files on the left. The editor in the middle. The crew on the right.
+That frame is the page itself. The buttons are the builds. Under them, Senior is already waiting on three workers, `calculator.py` is open, and the name in the title bar is the model you connected. Flint does not ship a model.
 
-Senior reads the job and hands each worker one file. You see the diff before anything stays.
+Closer, with the review open.
 
-## Before / after
+<p align="center">
+  <img src="site/images/studio.png" width="920" alt="The Flint window: the crew, calculator.py, Senior's chat, and the diff.">
+</p>
 
-You paste a project into a chat. The model answers from the piece you pasted. You copy the answer back, and hope the rest of the folder still fits.
+The left column is the crew and the folder. The middle is the file. The right is the chat with whoever you picked. Under the editor, Review is the line that changed: `return None` comes out, `raise ZeroDivisionError` goes in. It stays a proposal until you keep it.
 
-Flint opens the folder. The edit lands on the file that was already there. Keep it, drop a hunk, or send a note back.
+## One sentence in. A file each.
 
-## The window
+Name one agent Senior when a job should be split. The others are the workers. You send the job once. Senior does not write every file. It gives `calculator.py` to one worker and the tests to another, and says so in the chat.
 
-| | |
-| --- | --- |
-| **Crew** | Senior splits a job. The workers start together, each on one file. A second address in Settings keeps them off Senior's server. |
-| **Editor** | Tabs, preview, and Pyright on Python. Problems sit in the dock. Drag the edges. Double-click a divider to put them back. |
-| **Review** | Every edit is a diff. Test runs the suite and leaves each failure beside the review. |
-| **Model** | Ollama, llama.cpp, or anything that speaks OpenAI. Flint asks the server how many slots it has, and only then lets that many workers talk at once. |
+Flint asks the model server how many slots it has, and uses that number. Six slots, six workers may talk at once. Until the server answers, one worker goes. The others wait on the model. They do not wait on each other.
+
+A command does not run because an agent wrote it. The composer stops and shows it: Run, allow this once, Allow all, or skip. Allow all is a switch you set. It is not how Flint starts.
+
+Plan mode can read the folder. It cannot edit, and it cannot run a command.
 
 ## Download
 
-Windows installer. macOS disk image. Ubuntu `.deb` and AppImage.
+| | File |
+| --- | --- |
+| Windows | `Flint-Setup-0.1.0.exe` |
+| macOS | disk image, Apple silicon and Intel |
+| Ubuntu | `.deb` and AppImage |
 
-[Latest release](https://github.com/kolan51/flint/releases/latest)
-
-The site's buttons point at those files once the release exists. Until then they stay quiet. A Mac build is made on a Mac. An Ubuntu build is made on Ubuntu.
+[The site](https://kolan51.github.io/flint/) reads the latest release and points each button at a file that exists. A missing build stays quiet. The Mac file is made on a Mac runner. The Ubuntu file is made on Ubuntu. Pushing a `v*` tag is what starts the three builds.
 
 ## From this folder
 
@@ -51,32 +60,19 @@ npm install
 npm run desktop
 ```
 
-Then:
+Leave the server running. Ollama is `http://127.0.0.1:11434`. llama.cpp and LM Studio are usually `http://127.0.0.1:8080`. Gear, Models. Name it, paste the address, Add model, Test, then pick it in the title bar. Offline means that address did not answer. Flint asks again on its own.
 
-1. Leave a model server running. Ollama is `http://127.0.0.1:11434`. llama.cpp and LM Studio are often `http://127.0.0.1:8080`.
-2. Gear, Models. Name it, paste the address, Add model, Test. Pick it in the title bar.
-3. Open a folder. Flint reads and edits only inside it.
-4. Name one agent Senior when the work should be split. The others are the workers.
-5. Send the job. Agent mode can edit and run commands. Plan mode can only read. A command waits until you press Run.
+Open a folder. Reads and writes stay inside it.
 
-`Ctrl+Shift+O` opens a folder. `Ctrl+K` opens commands. `Enter` sends.
+`Ctrl+Shift+O` opens a folder. `Ctrl+K` opens the command list. Enter sends.
 
-## FAQ
+## What leaves the machine
 
-**Does a chat leave this computer?**
-The folder and the chats stay here. An update check asks GitHub whether a newer Flint exists. Search, if you turn it on, asks DuckDuckGo or Brave.
+The folder does not. The chats do not. There is no account.
 
-**Why a crew?**
-One model, one long thread, gets slow and loses the file it was in. Senior keeps the plan. Each worker gets a file and a short job.
+An update check, on unless you turn it off, asks GitHub whether a newer Flint exists. It does not send the folder. Search runs only when an agent uses it, and then it asks DuckDuckGo, or Brave if you saved a key.
 
-**What if the title bar says the model is offline?**
-That address is not answering. Flint asks again every few seconds. When the server is back, the warning goes away on its own.
-
-**Why are workers waiting?**
-They are waiting for a free slot on your model, not for each other. Flint reads the slot count from the server. Until that answer arrives, one worker goes.
-
-**Can it run a command by itself?**
-Only if you set Allow all. Otherwise it stops and shows the command.
+[Privacy](https://kolan51.github.io/flint/privacy.html) · [Terms](https://kolan51.github.io/flint/terms.html)
 
 ## License
 

@@ -1,10 +1,7 @@
-# Local Bot
+# This folder
 
-This folder is the default workspace.
+Flint opened this folder because you have not chosen a project yet.
 
-1. Open **Connect LLM** and point it at Ollama, LM Studio, llama.cpp, or your own OpenAI-compatible server.
-2. Pick a model you actually have pulled locally.
-3. Chat with **Grok**, or open **New agent** and design another coding bot.
-4. Turn on **Follow Me**, then edit this file. The selected agent will comment when you pause.
+Point the gear at a model server you already run. Name one agent Senior when a job should be split. The others take a file each. A change shows up under the editor, and it stays a proposal until you keep it.
 
-You own the models. The agents live in `data/agents.json`.
+Chats, agents, and the model address live next to the app. They are not in this folder.
