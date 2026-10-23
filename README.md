@@ -47,7 +47,7 @@ The [site](https://kolan51.github.io/flint/) has the installers at the top. The 
 One agent can lead. The others take a piece each, in that same folder, on the model you picked.
 
 <p align="center">
-  <img src="site/images/crew.png" width="720" alt="Senior hands the same folder to three workers.">
+  <img src="site/images/crew.png" width="720" alt="One agent hands the same folder to the others. You choose the names and how many.">
 </p>
 
 ## Your model
@@ -76,7 +76,7 @@ A local model and a cloud API can both sit in the list. Switch them from the tit
 
 Fix the bug. Add the page. Explain this file. Rename it across the project.
 
-For a bigger job, name one agent Senior. Senior hands each of the others a piece, and they work in the same folder together. Flint checks how many chats your server can hold at once, and keeps to that.
+For a bigger job, name one agent to lead and call it whatever you want. It hands each of the others a piece, and they work in the same folder together. Add as many as the job needs. Flint checks how many chats your server can hold at once, and keeps to that.
 
 If it wants to run a command, it shows you first. Run it, allow it, or skip it. There is a Plan mode too, for when you only want it to read.
 
