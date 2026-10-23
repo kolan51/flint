@@ -17,7 +17,7 @@
       --mono: "Geist Mono", "Cascadia Mono", ui-monospace, monospace;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; scrollbar-width: none; }
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; scrollbar-width: none; }
     html::-webkit-scrollbar { display: none; }
     html, body { margin: 0; background: #10100e; color: var(--ink); font-family: var(--sans); }
     body { min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -582,16 +582,16 @@
     </a>
     <nav>
       <a href="#start">Start</a>
-      <a href="#download">Download</a>
+      <a href="#download" id="nav-download">Download</a>
       <a id="source" href="https://github.com/kolan51/flint">Source</a>
     </nav>
   </header>
   <main>
-    <section class="hero">
+    <section class="hero" id="download">
       <p class="eyebrow">A crew on your machine</p>
       <h1>Your models. Your agents.</h1>
       <p class="lede">A senior splits the job. The workers do it in the folder you open. You see who touched what.</p>
-      <div class="downloads" id="download">
+      <div class="downloads">
         <a class="primary" id="win" href="https://github.com/kolan51/flint/releases/latest"><strong>Download for Windows</strong><span>Installer</span></a>
         <div class="alt">
           <a id="mac" href="https://github.com/kolan51/flint/releases/latest"><strong>macOS</strong><span>Apple silicon and Intel</span></a>
@@ -732,6 +732,11 @@
   </footer>
   <script src="studio.js"></script>
   <script>
+    document.getElementById("nav-download").addEventListener("click", (event) => {
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      history.replaceState(null, "", "#download");
+    });
     const repo = "kolan51/flint";
     const releases = `https://github.com/${repo}/releases`;
     document.getElementById("source").href = `https://github.com/${repo}`;

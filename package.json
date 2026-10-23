@@ -1,7 +1,7 @@
 {
   "name": "local-bot",
   "version": "0.1.0",
-  "description": "A desktop studio for a model server you already run. Senior splits the job. The folder stays put.",
+  "description": "A desktop app for coding with a model you already run. Open a folder, let agents edit it, and review the changes.",
   "author": {
     "name": "Jasa Frelih Crv",
     "email": "36926352+kolan51@users.noreply.github.com"

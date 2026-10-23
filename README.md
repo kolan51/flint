@@ -5,8 +5,8 @@
 <h1 align="center">Flint</h1>
 
 <p align="center">
-  A desktop studio for a model server you already run.<br>
-  Senior splits the job. The workers edit the folder you opened.
+  A desktop app for coding with a model you already run.<br>
+  Open a folder. Agents edit the files in it. You review the changes.
 </p>
 
 <p align="center">
@@ -17,60 +17,56 @@
   <a href="LICENSE">MIT</a>
 </p>
 
-The page is live at [kolan51.github.io/flint](https://kolan51.github.io/flint/). It is the front door: the installers, then the studio, and the window on that page answers when you click it.
+[kolan51.github.io/flint](https://kolan51.github.io/flint/) is the download page. The installers are at the top. The window under them is the app, and the controls on that page respond when you click them.
 
 <p align="center">
-  <img src="site/images/hero.png" width="920" alt="The Flint site. Download first, then the studio already on a job.">
+  <img src="site/images/hero.png" width="920" alt="The Flint site, with the download buttons and the app window.">
 </p>
 
-That frame is the page itself. The buttons are the builds. Under them, Senior is already waiting on three workers, `calculator.py` is open, and the name in the title bar is the model you connected. Flint does not ship a model.
-
-Closer, with the review open.
+The app connects to a model server you choose. It does not include a model. Ollama, llama.cpp, LM Studio, and any OpenAI-compatible server all work. You paste the address in Settings, test it, and pick it in the title bar.
 
 <p align="center">
-  <img src="site/images/studio.png" width="920" alt="The Flint window: the crew, calculator.py, Senior's chat, and the diff.">
+  <img src="site/images/studio.png" width="920" alt="The Flint window: agents, files, the editor, chat, and a diff.">
 </p>
 
-The left column is the crew and the folder. The middle is the file. The right is the chat with whoever you picked. Under the editor, Review is the line that changed: `return None` comes out, `raise ZeroDivisionError` goes in. It stays a proposal until you keep it.
+The window has three columns. Agents and the open folder are on the left. The editor is in the middle. Chat is on the right. Each edit appears as a diff under the editor. You keep it or drop it.
 
-## One sentence in. A file each.
+## What you can do
 
-Name one agent Senior when a job should be split. The others are the workers. You send the job once. Senior does not write every file. It gives `calculator.py` to one worker and the tests to another, and says so in the chat.
+One agent can lead. You name it Senior. It can split a job and give each other agent a part of it. Those agents work in the same folder at the same time.
 
-Flint asks the model server how many slots it has, and uses that number. Six slots, six workers may talk at once. Until the server answers, one worker goes. The others wait on the model. They do not wait on each other.
+Flint asks the model server how many sessions it allows, and uses that number. Until the server answers, one agent talks to the model.
 
-A command does not run because an agent wrote it. The composer stops and shows it: Run, allow this once, Allow all, or skip. Allow all is a switch you set. It is not how Flint starts.
+A command is shown before it runs. You can run it, allow it once, allow commands from then on, or skip it. Plan mode can read the folder. It does not edit files and it does not run commands.
 
-Plan mode can read the folder. It cannot edit, and it cannot run a command.
+Flint only reads and writes inside the folder you open.
 
 ## Download
 
-| | File |
+| System | Installer |
 | --- | --- |
 | Windows | `Flint-Setup-0.1.0.exe` |
-| macOS | disk image, Apple silicon and Intel |
+| macOS | Disk image for Apple silicon and Intel |
 | Ubuntu | `.deb` and AppImage |
 
-[The site](https://kolan51.github.io/flint/) reads the latest release and points each button at a file that exists. A missing build stays quiet. The Mac file is made on a Mac runner. The Ubuntu file is made on Ubuntu. Pushing a `v*` tag is what starts the three builds.
+The [site](https://kolan51.github.io/flint/) links each button to a file from the [latest release](https://github.com/kolan51/flint/releases/latest). A button stays inactive when that build is not published yet. macOS is built on a Mac. Ubuntu is built on Ubuntu. A version tag starting with `v` starts those builds.
 
-## From this folder
+## Run from source
 
 ```bash
 npm install
 npm run desktop
 ```
 
-Leave the server running. Ollama is `http://127.0.0.1:11434`. llama.cpp and LM Studio are usually `http://127.0.0.1:8080`. Gear, Models. Name it, paste the address, Add model, Test, then pick it in the title bar. Offline means that address did not answer. Flint asks again on its own.
+Point Settings at your model server. Ollama is usually `http://127.0.0.1:11434`. llama.cpp and LM Studio are usually `http://127.0.0.1:8080`. If the title bar says the model is offline, that address is not answering. Flint checks again on its own.
 
-Open a folder. Reads and writes stay inside it.
+`Ctrl+Shift+O` opens a folder. `Ctrl+K` opens the command list. Enter sends a message.
 
-`Ctrl+Shift+O` opens a folder. `Ctrl+K` opens the command list. Enter sends.
+## Data
 
-## What leaves the machine
+Chats, agent settings, and the folder stay on this computer. There is no Flint account.
 
-The folder does not. The chats do not. There is no account.
-
-An update check, on unless you turn it off, asks GitHub whether a newer Flint exists. It does not send the folder. Search runs only when an agent uses it, and then it asks DuckDuckGo, or Brave if you saved a key.
+An update check asks GitHub if a newer version exists. You can turn that off. Web search, when an agent uses it, goes to DuckDuckGo, or to Brave if you add a key.
 
 [Privacy](https://kolan51.github.io/flint/privacy.html) · [Terms](https://kolan51.github.io/flint/terms.html)
 
