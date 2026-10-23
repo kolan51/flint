@@ -5,14 +5,14 @@
 <h1 align="center">Flint</h1>
 
 <p align="center">
-  A Grok-style coding bot for local LLMs and your own APIs.<br>
+  A desktop app for a local model, or an API you already have.<br>
   Open a folder. Talk to it. Keep the diff.
 </p>
 
 <p align="center">
   <a href="https://github.com/kolan51/flint/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kolan51/flint?style=flat-square&label=stars"></a>
   <a href="https://github.com/kolan51/flint/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/kolan51/flint?style=flat-square&label=release"></a>
-  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, OpenAI, Claude, DeepSeek, and more" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20OpenAI%20%C2%B7%20Claude%20%C2%B7%20more-3d3424?style=flat-square"></a>
+  <a href="https://github.com/kolan51/flint#your-model"><img alt="Works with Ollama, OpenAI, Claude, DeepSeek, and more" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20OpenAI%20%C2%B7%20Claude%20%C2%B7%20more-3d3424?style=flat-square"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kolan51/flint?style=flat-square&label=license"></a>
 </p>
 
@@ -22,9 +22,9 @@
   <a href="https://github.com/kolan51/flint/releases/latest">Download</a>
 </p>
 
-You already have a model that can write. Maybe it is Ollama on this PC. Maybe it is llama.cpp, LM Studio, ChatGPT, Claude, or DeepSeek. What you are missing is a place to talk to it while it works in the project.
+Point Flint at a model you already run, or an API you already have. Ollama, llama.cpp, LM Studio, OpenAI, Claude, and DeepSeek are in the list. So are Gemini, Grok, Mistral, and the other common ones.
 
-Flint is that place. A desktop chat, a real editor, and a small crew of agents that can split a job. The folder stays where it is.
+Flint is the window around that model. A chat, an editor, and a small crew of agents. The folder stays where it is.
 
 <p align="center">
   <a href="https://kolan51.github.io/flint/">
@@ -32,7 +32,7 @@ Flint is that place. A desktop chat, a real editor, and a small crew of agents t
   </a>
 </p>
 
-The [site](https://kolan51.github.io/flint/) is the same window. The buttons up top are the installers. The picture is the current studio: agents on the left, the file in the middle, the crew in the chat, and the diff underneath.
+The [site](https://kolan51.github.io/flint/) has the installers at the top. The window under them is the app: agents on the left, the file in the middle, the chat on the right, and the diff under the editor.
 
 <p align="center">
   <img src="site/images/studio.png" width="920" alt="The current Flint window: agents, the file, the crew, and the diff.">
@@ -50,7 +50,7 @@ One agent can lead. The others take a piece each, in that same folder, on the mo
   <img src="site/images/crew.png" width="720" alt="Senior hands the same folder to three workers.">
 </p>
 
-## Bring your own brain
+## Your model
 
 Paste the address in Settings and pick it in the title bar.
 
@@ -72,7 +72,7 @@ Pick the name in Settings and Flint fills the address. A cloud one also needs it
 
 A local model and a cloud API can both sit in the list. Switch them from the title bar whenever you want a different one for the chat.
 
-## Ask it like you would ask Grok
+## What you ask
 
 Fix the bug. Add the page. Explain this file. Rename it across the project.
 

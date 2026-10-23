@@ -4,7 +4,7 @@ const agents = [
   { id: "senior", name: "Senior", color: "#f4b860", face: "🦊", line: "Waiting on 3 workers", job: "Senior engineer", file: "", prompt: "Split the job. Hand each piece to a worker and leave the review in the dock.", model: "" },
   { id: "w1", name: "Worker 1", color: "#7ec8c8", face: "🐢", line: "Editing calculator.py", job: "Builder", file: "calculator.py", prompt: "Change only the file you were given. Prefer working code.", model: "" },
   { id: "w2", name: "Worker 2", color: "#e07a5f", face: "🐙", line: "Reading the tests", job: "Reviewer", file: "test_calculator.py", prompt: "Read the tests first. Add the missing case without rewriting the rest.", model: "" },
-  { id: "w3", name: "Worker 3", color: "#9b8cff", face: "🐝", line: "Waiting for the model", job: "Checker", file: "", prompt: "Stay on the window. Do not touch the tests.", model: "" },
+  { id: "w3", name: "Worker 3", color: "#9b8cff", face: "🐝", line: "Waiting for the model", job: "Checker", file: "README.md", prompt: "Wait for the model, then check the README against the change.", model: "" },
 ];
 
 function esc(value) {
@@ -78,7 +78,7 @@ const threads = {
       crew: [
         { name: "Worker 1", face: "🐢", color: "#7ec8c8", line: "Editing calculator.py", job: "Raise when the divisor is zero.", file: "calculator.py" },
         { name: "Worker 2", face: "🐙", color: "#e07a5f", line: "Reading the tests", job: "Add the zero case.", file: "test_calculator.py" },
-        { name: "Worker 3", face: "🐝", color: "#9b8cff", line: "Waiting for the model", job: "Leave the window alone.", file: "" },
+        { name: "Worker 3", face: "🐝", color: "#9b8cff", line: "Waiting for the model", job: "Check the README after the tests.", file: "README.md" },
       ],
     },
   ],
@@ -86,10 +86,10 @@ const threads = {
     { role: "agent", name: "Worker 1", color: "#7ec8c8", face: "🐢", text: "divide raises when the divisor is zero. calculator.py is the only file I will touch." },
   ],
   w2: [
-    { role: "agent", name: "Worker 2", color: "#e07a5f", face: "🐙", text: "test_calculator.py still covers add, multiply, and divide. I am adding the zero case." },
+    { role: "agent", name: "Worker 2", color: "#e07a5f", face: "🐙", text: "I am adding the zero case to test_calculator.py." },
   ],
   w3: [
-    { role: "agent", name: "Worker 3", color: "#9b8cff", face: "🐝", text: "The window is a frame around the same three buttons. I will not touch the tests." },
+    { role: "agent", name: "Worker 3", color: "#9b8cff", face: "🐝", text: "I am next. I will check the README once the tests pass." },
   ],
 };
 
