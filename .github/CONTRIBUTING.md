@@ -2,6 +2,8 @@
 
 Flint is a desktop app. The window is the product. The site in `site/` is the page at [kolan51.github.io/flint](https://kolan51.github.io/flint/).
 
+`electron/` is the window. `server/` is the API on this machine. `src/` is the studio. The version in `package.json` is the one the installers use.
+
 ## Run it
 
 ```bash

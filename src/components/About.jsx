@@ -28,7 +28,7 @@ export default function About() {
             <img src="/icon.png" alt="" />
             <div>
               <h2>Flint</h2>
-              <p>0.1.1</p>
+              <p>0.1.2</p>
             </div>
           </div>
           <button className="ghost" type="button" onClick={() => setModal(null)}>Close</button>

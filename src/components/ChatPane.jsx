@@ -70,6 +70,9 @@ export default function ChatPane() {
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [soFar, setSoFar] = useState("");
   const soFarFocus = useRef(false);
+  const [naming, setNaming] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const skipTitle = useRef(false);
   const [sessionQuery, setSessionQuery] = useState("");
   const [sessionBox, setSessionBox] = useState(null);
   const sessionBar = useRef(null);
@@ -201,6 +204,25 @@ export default function ChatPane() {
     patchSession(activeAgent.id, activeChapter.id, { summary: next });
   }
 
+  function startRename(event) {
+    event.stopPropagation();
+    closeSessions();
+    setDraftTitle(sessionTitle === "New session" ? "" : sessionTitle);
+    setNaming(true);
+  }
+
+  async function commitTitle() {
+    if (skipTitle.current) {
+      skipTitle.current = false;
+      setNaming(false);
+      return;
+    }
+    const title = draftTitle.trim().slice(0, 80);
+    setNaming(false);
+    if (!title || !activeAgent || !activeChapter || title === sessionTitle) return;
+    await patchSession(activeAgent.id, activeChapter.id, { title, titleEdited: true });
+  }
+
   async function renameChapter() {
     const current = sessionTitle === "New session" ? "" : sessionTitle;
     const next = await ask({
@@ -314,22 +336,39 @@ export default function ChatPane() {
   return (
     <>
       {sessionSlot && createPortal(
-        <div className="session-bar">
-          <button type="button" className="session-current" title={sessionTitle} ref={sessionBar} onClick={toggleSessions}>
-            <span>{sessionTitle === "New session" ? "Empty chat" : sessionTitle}</span>
+        <div className="session-bar" ref={sessionBar}>
+          {naming ? (
+            <input
+              className="session-title-input"
+              value={draftTitle}
+              placeholder="Name this chat"
+              aria-label="Chat name"
+              autoFocus
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+                if (event.key === "Escape") {
+                  skipTitle.current = true;
+                  setNaming(false);
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          ) : (
+            <button type="button" className="session-current" title={sessionTitle} onClick={toggleSessions}>
+              <span>{sessionTitle === "New session" ? "Empty chat" : sessionTitle}</span>
+            </button>
+          )}
+          <button type="button" className="session-pen" aria-label="Rename chat" title="Rename" onClick={startRename}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+              <path d="M13.5 6.5l3 3" />
+            </svg>
           </button>
-          <input
-            className="so-far-inline"
-            value={soFar}
-            placeholder="So far"
-            aria-label="So far"
-            onFocus={() => { soFarFocus.current = true; }}
-            onBlur={() => {
-              soFarFocus.current = false;
-              saveSoFar();
-            }}
-            onChange={(event) => setSoFar(event.target.value)}
-          />
         </div>,
         sessionSlot,
       )}

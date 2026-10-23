@@ -1,6 +1,6 @@
 {
   "name": "local-bot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Grok-style coding bot for local LLMs and your own APIs.",
   "author": {
     "name": "Jasa Frelih Crv",

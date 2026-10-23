@@ -1357,7 +1357,7 @@ export function startServer(port = Number(process.env.PORT || 8787)) {
     const server = app.listen(port, "127.0.0.1", () => {
       const address = server.address();
       const actual = address && typeof address === "object" ? address.port : port;
-      console.log(`Local Bot API on http://127.0.0.1:${actual}`);
+      console.log(`Flint API on http://127.0.0.1:${actual}`);
       resolve({ server, port: actual });
     });
     server.on("error", reject);

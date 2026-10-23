@@ -80,7 +80,7 @@ async function ensureApi() {
   } catch (err) {
     if (err.code !== "EADDRINUSE") throw err;
     if (!app.isPackaged) {
-      console.log("Local Bot API already running");
+      console.log("Flint API already running");
       return;
     }
     const started = await startServer(0);

@@ -10,11 +10,16 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/kolan51/flint/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kolan51/flint?style=flat-square&label=stars"></a>
+  <a href="https://github.com/kolan51/flint/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/kolan51/flint?style=flat-square&label=release"></a>
+  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, llama.cpp, and your API" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20llama.cpp%20%C2%B7%20your%20API-3d3424?style=flat-square"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kolan51/flint?style=flat-square&label=license"></a>
+</p>
+
+<p align="center">
   <a href="https://kolan51.github.io/flint/"><strong>See it</strong></a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
   <a href="https://github.com/kolan51/flint/releases/latest">Download</a>
-  &nbsp;&nbsp;·&nbsp;&nbsp;
-  <a href="LICENSE">MIT</a>
 </p>
 
 You already have a model that can write. Maybe it is Ollama on this PC. Maybe it is llama.cpp, LM Studio, or an API key you already pay for. What you are missing is a place to talk to it while it works in the project.
@@ -57,11 +62,15 @@ If it wants to run a command, it shows you first. Run it, allow it, or skip it. 
 
 ## Download
 
+Installers for Windows, macOS, and Ubuntu are on the [latest release](https://github.com/kolan51/flint/releases/latest).
+
 | | |
 | --- | --- |
 | Windows | [Flint Setup](https://github.com/kolan51/flint/releases/latest) |
-| Mac | Disk image, Apple silicon and Intel |
-| Ubuntu | `.deb` and AppImage |
+| Mac | [Disk image](https://github.com/kolan51/flint/releases/latest), Apple silicon and Intel |
+| Ubuntu | [`.deb` and AppImage](https://github.com/kolan51/flint/releases/latest) |
+
+Windows may warn before the installer opens. The build is not signed yet.
 
 Or [open the site](https://kolan51.github.io/flint/) and press the button for your machine. Same files.
 
@@ -72,6 +81,8 @@ npm install
 npm run desktop
 ```
 
+`electron/` is the window. `server/` is the API on this machine. `src/` is the studio. `site/` is the page.
+
 `Ctrl+Shift+O` opens a folder. `Ctrl+K` is the command list. Enter sends.
 
 ## Your stuff stays put
@@ -81,6 +92,16 @@ Chats, agents, and the project stay on this computer. There is no Flint account 
 Flint can ask GitHub if a newer version exists. You can turn that off. If an agent searches the web, the query goes to DuckDuckGo, or to Brave when you add a key.
 
 [Privacy](https://kolan51.github.io/flint/privacy.html) · [Terms](https://kolan51.github.io/flint/terms.html)
+
+## FAQ
+
+**Does it need an account?** No. Chats, agents, and the model address stay on this computer.
+
+**Which models?** Any Ollama server, any llama.cpp or LM Studio server, or an OpenAI-compatible API you already have. Several agents can share one. Flint asks the server how many chats it can hold, and stays inside that.
+
+**Where do the edits go?** Into the folder you opened. A change sits in the diff until you keep it. A command does not run until you allow it, unless you have set Allow all.
+
+**Windows warns that the installer is not signed.** That warning is real. There is no signing certificate on these builds yet.
 
 ## License
 

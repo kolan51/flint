@@ -30,10 +30,10 @@
         radial-gradient(ellipse 70% 42% at 50% -8%, rgba(244, 184, 96, 0.16), transparent 58%),
         radial-gradient(ellipse 46% 32% at 50% 46%, rgba(244, 184, 96, 0.07), transparent 70%);
     }
-    header, main, footer { position: relative; z-index: 1; }
+    body > header, main, body > footer { position: relative; z-index: 1; }
     a { color: inherit; }
     code { font-family: var(--mono); font-size: 0.92em; }
-    header {
+    body > header {
       position: sticky; top: 0; z-index: 4;
       display: flex; align-items: center; justify-content: space-between;
       height: 80px; padding: 0 36px;
@@ -43,9 +43,9 @@
     }
     .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; text-decoration: none; }
     .brand svg { width: 40px; height: 40px; }
-    nav { display: flex; gap: 32px; align-items: center; color: var(--muted); font-size: 18px; }
-    nav a { text-decoration: none; }
-    nav a:hover { color: var(--ink); }
+    body > header nav { display: flex; gap: 32px; align-items: center; color: var(--muted); font-size: 18px; }
+    body > header nav a { text-decoration: none; }
+    body > header nav a:hover { color: var(--ink); }
     main { width: min(1120px, calc(100% - 48px)); margin: 0 auto; }
     .hero { padding: 92px 0 20px; text-align: center; }
     .eyebrow {
@@ -73,9 +73,21 @@
       letter-spacing: -0.02em;
       font-weight: 400;
     }
+    .marks {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+      margin: 26px 0 0;
+    }
+    .marks a {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 28px; padding: 0 10px; border-radius: 7px;
+      background: #2a2926; color: #b7b0a4; font-size: 13px;
+      letter-spacing: -0.01em; text-decoration: none;
+    }
+    .marks a:hover { color: #fff; }
+    .marks b { color: #ece7dc; font-weight: 600; }
     .downloads {
       display: flex; flex-direction: column; align-items: center; gap: 16px;
-      margin: 36px 0 14px;
+      margin: 22px 0 14px;
     }
     .downloads a { text-decoration: none; }
     .downloads a.primary {
@@ -114,7 +126,7 @@
       position: relative;
       width: min(1080px, 100%);
       margin: 0 auto;
-      height: 780px;
+      height: 900px;
       display: grid;
       grid-template-rows: 58px minmax(0, 1fr) 156px 28px;
       border-radius: 16px;
@@ -127,7 +139,7 @@
       text-align: left;
     }
     .fbar, .ftools, .ftabs, .fdock-h { display: flex; align-items: center; }
-    .fbar { position: relative; z-index: 5; justify-content: space-between; padding: 0 12px 0 14px; border-bottom: 1px solid #262420; background: #10100e; }
+    .fbar { position: relative; z-index: 5; height: 100%; min-height: 0; overflow: hidden; justify-content: space-between; padding: 0 12px 0 14px; border-bottom: 1px solid #262420; background: #10100e; box-sizing: border-box; }
     .fbrand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -0.03em; }
     .fbrand img { width: 30px; height: 30px; border-radius: 8px; }
     .fmodel, .ftools button, .ftab, .fdock-h button, .fcompose button, .fside button {
@@ -266,18 +278,18 @@
     .fpane { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; height: auto; min-height: 40px; min-width: 0; padding: 4px 10px 6px; border-bottom: 1px solid #262420; flex: none; }
     .fpane button { height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #8d8476; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
     .fpane button.on { color: #ece7dc; }
-    .fsess-block { flex: 1 0 100%; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: 10px; }
-    .fpane .fsess { margin: 0; max-width: 46%; width: auto; text-align: left; color: #ece7dc; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fsofar { display: flex; align-items: center; margin: 0; min-width: 0; flex: 1; }
-    .fsofar input {
-      width: 100%; min-width: 0; height: 24px; border: 0; background: transparent; color: #8d8476;
-      font: inherit; font-size: 12px;
+    .fsess-block { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: row; align-items: center; gap: 4px; }
+    .fpane .fsess { margin: 0; max-width: calc(100% - 28px); width: auto; text-align: left; color: #ece7dc; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fpane .fsess-pen {
+      margin-left: auto; width: 22px; height: 22px; flex: none; display: grid; place-items: center;
+      border: 0; border-radius: 6px; background: transparent; color: #8d8476; padding: 0;
     }
-    .fsofar input::placeholder { color: #6d6458; }
-    .fsofar input:focus { outline: none; color: #ece7dc; }
-    .fstatus-actions { display: flex; gap: 4px; margin-left: 12px; }
+    .fsess-pen svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .fsess-pen:hover { color: #ece7dc; background: #1c1b19; }
+    .fstatus-actions { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
     .fstatus-actions button {
-      height: 22px; padding: 0 8px; border-radius: 6px; color: #8d8476; font-size: 11px;
+      appearance: none; height: 20px; margin: 0; padding: 0 6px; border: 0; border-radius: 4px;
+      background: transparent; color: #8d8476; font: inherit; font-size: 12px; cursor: pointer;
     }
     .fstatus-actions button.on, .fstatus-actions button:hover { color: #ece7dc; background: #1c1b19; }
     .fwho { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -292,8 +304,8 @@
     .frow-crew em { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .fagent small.doing { color: #f4b860; font-weight: 600; }
     .feditor { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-    .ftabs { gap: 2px; padding: 0 8px; border-bottom: 1px solid #262420; overflow: hidden; }
-    .ftab { padding: 10px 8px; color: #8d8476; border-bottom: 2px solid transparent; }
+    .ftabs { flex: none; height: 36px; min-height: 36px; gap: 2px; padding: 0 8px; border-bottom: 1px solid #262420; overflow: hidden; }
+    .ftab { display: inline-flex; align-items: center; height: 100%; padding: 0 10px; line-height: 1; white-space: nowrap; color: #8d8476; border-bottom: 2px solid transparent; }
     .ftab.on { color: #ece7dc; border-bottom-color: #f4b860; }
     .fcode { margin: 0; flex: 1; overflow: hidden; display: flex; font-family: var(--mono); font-size: 13px; line-height: 1.65; color: #efe6d6; }
     .fgutter { padding: 18px 0 28px 16px; color: #6d6456; text-align: right; user-select: none; }
@@ -526,7 +538,7 @@
     .facts article:nth-child(even) { padding: 26px 0 26px 36px; border-left: 1px solid var(--line); }
     .facts h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.03em; font-weight: 600; }
     .facts p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 17px; letter-spacing: -0.011em; }
-    footer {
+    body > footer {
       display: flex; justify-content: space-between; gap: 16px;
       width: min(1120px, calc(100% - 48px));
       margin: 0 auto;
@@ -535,15 +547,15 @@
       font-size: 14px;
       border-top: 1px solid var(--line);
     }
-    footer a { text-decoration: none; }
-    footer a:hover { color: var(--ink); }
+    body > footer a { text-decoration: none; }
+    body > footer a:hover { color: var(--ink); }
     .footer-links { display: flex; gap: 18px; flex-wrap: wrap; }
     @media (max-width: 800px) {
-      header { padding: 0 18px; height: 68px; }
+      body > header { padding: 0 18px; height: 68px; }
       .brand { font-size: 20px; }
       .brand svg { width: 34px; height: 34px; }
-      nav { gap: 18px; font-size: 16px; }
-      main, footer { width: min(1120px, calc(100% - 32px)); }
+      body > header nav { gap: 18px; font-size: 16px; }
+      main, body > footer { width: min(1120px, calc(100% - 32px)); }
       .hero { padding: 48px 0 8px; }
       .eyebrow { letter-spacing: 0.12em; font-size: 12px; }
       .bridge { padding-top: 72px; }
@@ -562,7 +574,7 @@
       .dots button { flex: none; min-width: 64px; font-size: 12px; }
       .fwins { display: none; }
       .sheet { width: min(460px, calc(100% - 24px)); }
-      footer { flex-wrap: wrap; }
+      body > footer { flex-wrap: wrap; }
     }
     @media (max-width: 520px) {
       .fbrand b { display: none; }
@@ -594,6 +606,12 @@
       <p class="eyebrow">A crew on your machine</p>
       <h1>Your models. Your agents.</h1>
       <p class="lede">A senior splits the job. The workers do it in the folder you open. You see who touched what.</p>
+      <div class="marks">
+        <a id="mark-stars" href="https://github.com/kolan51/flint"><b>stars</b> <span>–</span></a>
+        <a id="mark-release" href="https://github.com/kolan51/flint/releases/latest"><b>release</b> <span>0.1.2</span></a>
+        <a href="https://github.com/kolan51/flint#bring-your-own-brain"><b>works with</b> <span>Ollama · llama.cpp · your API</span></a>
+        <a href="https://github.com/kolan51/flint/blob/main/LICENSE"><b>license</b> <span>MIT</span></a>
+      </div>
       <div class="downloads">
         <a class="primary" id="win" href="https://github.com/kolan51/flint/releases/latest"><strong>Download for Windows</strong><span>Installer</span></a>
         <div class="alt">
@@ -643,7 +661,7 @@
             <pre class="fcode" id="code"></pre>
           </section>
           <aside class="fchat">
-            <div class="fpane"><button type="button" class="on">Chat</button><button type="button" data-act="follow">Follow</button><div class="fsess-block"><button type="button" class="fsess" data-act="session">Calculator divide</button><label class="fsofar"><input id="soFar" aria-label="So far" placeholder="So far" value="Divide raises on zero"></label></div></div>
+            <div class="fpane"><button type="button" class="on">Chat</button><button type="button" data-act="follow">Follow</button><div class="fsess-block"><button type="button" class="fsess" data-act="session">Calculator divide</button><button type="button" class="fsess-pen" aria-label="Rename" title="Rename"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 6.5l3 3"/></svg></button></div></div>
             <div id="sessionMenu"></div>
             <div class="fmsgs" id="msgs"></div>
             <form class="fcompose" id="compose">
@@ -726,7 +744,7 @@
     </section>
   </main>
   <footer>
-    <span>Flint 0.1.1</span>
+    <span>Flint 0.1.2</span>
     <div class="footer-links">
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
@@ -752,14 +770,26 @@
     }
     function useLocalInstaller() {
       const win = document.getElementById("win");
-      win.href = "Flint-Setup-0.1.1.exe";
+      win.href = "Flint-Setup-0.1.2.exe";
       win.querySelector("span").textContent = "Installer on this PC";
       markUnbuilt("mac", "Built on a Mac");
       markUnbuilt("linux", "Built on Linux");
     }
-    fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } })
+    const headers = { Accept: "application/vnd.github+json" };
+    fetch(`https://api.github.com/repos/${repo}`, { headers })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
+        const count = data?.stargazers_count;
+        const node = document.querySelector("#mark-stars span");
+        if (node && Number.isFinite(count)) node.textContent = String(count);
+      })
+      .catch(() => {});
+    fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const version = String(data?.tag_name || "").replace(/^v/, "");
+        const mark = document.querySelector("#mark-release span");
+        if (mark && version) mark.textContent = version;
         const assets = data?.assets || [];
         const find = (test) => assets.find((item) => test(item.name));
         const win = find((name) => /\.exe$/i.test(name));
