@@ -1,7 +1,7 @@
 {
   "name": "local-bot",
   "version": "0.1.0",
-  "description": "A desktop app for coding with a model you already run. Open a folder, let agents edit it, and review the changes.",
+  "description": "A Grok-style coding bot for local LLMs and your own APIs.",
   "author": {
     "name": "Jasa Frelih Crv",
     "email": "36926352+kolan51@users.noreply.github.com"
