@@ -1308,28 +1308,6 @@ img, svg { -webkit-user-drag: none; }
   padding-top: 4px;
   border-top: 1px solid var(--line);
 }
-.so-far {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px 2px;
-}
-.so-far span {
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-.so-far textarea {
-  width: 100%;
-  min-height: 72px;
-  resize: vertical;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--ink);
-  padding: 8px;
-  font: 12px/1.45 "Geist Sans", sans-serif;
-}
 .session-foot button {
   justify-content: center;
   color: var(--muted);

@@ -60,7 +60,7 @@ Paste the address in Settings and pick it in the title bar.
 | llama.cpp or LM Studio | usually `http://127.0.0.1:8080` |
 | OpenAI | `https://api.openai.com` |
 | Claude | `https://api.anthropic.com` |
-| Gemini | Google's OpenAI-compatible address |
+| Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` |
 | DeepSeek | `https://api.deepseek.com` |
 | Grok | `https://api.x.ai` |
 | Mistral | `https://api.mistral.ai` |

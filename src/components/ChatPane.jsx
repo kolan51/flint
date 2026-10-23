@@ -226,8 +226,8 @@ export default function ChatPane() {
   async function renameChapter() {
     const current = sessionTitle === "New session" ? "" : sessionTitle;
     const next = await ask({
-      title: "Name this chapter",
-      body: "The header keeps this name. The full chat stays underneath.",
+      title: "Name this chat",
+      body: "The header keeps this name.",
       input: true,
       value: current,
       confirm: "Save",

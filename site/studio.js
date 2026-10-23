@@ -494,7 +494,7 @@ if (walkRoot) {
       title: "Open Flint",
       label: "Open",
       text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. The window is the app. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
-      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.2</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
+      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.3</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
       boot: true,
     },
     {
@@ -517,14 +517,14 @@ if (walkRoot) {
     {
       title: "Add the server in Settings",
       label: "Models",
-      text: "Click the gear. Under Models, enter a name, choose Ollama or OpenAI-compatible, paste the address, and press Add model. Press Test. A model count means Flint can see it. Then pick that server in the title bar.",
+      text: "Click the gear. Under Models, pick the provider. Flint fills the address. A cloud one needs its key. Press Test. A model count means Flint can see it. Then pick that server in the title bar.",
       frame: `${bar("Model", "")}
         <div class="sheet-host"><form class="sheet">
           <h4>Models</h4>
-          <p>Add a server you already run. One address per model.</p>
+          <p>Pick a provider. Flint fills the address. Add a key for a cloud one.</p>
           <div class="sgrid">
             <label>Name<input value="Qwen" readonly></label>
-            <label>Type<select><option>Ollama</option><option>OpenAI-compatible</option></select></label>
+            <label>Provider<select><option>Ollama</option><option>OpenAI</option><option>Claude</option><option>DeepSeek</option></select></label>
             <label class="wide">Address<input value="http://127.0.0.1:11434" readonly></label>
           </div>
           <div class="srow"><button type="button" data-wact="add-model">Add model</button></div>
