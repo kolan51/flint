@@ -6,7 +6,15 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
-const icon = path.join(here, "..", "public", "icon.png");
+function windowIcon() {
+  const candidates = [
+    path.join(process.resourcesPath || "", "app.asar.unpacked", "dist", "icon.png"),
+    path.join(here, "..", "dist", "icon.png"),
+    path.join(here, "..", "public", "icon.png"),
+  ];
+  return candidates.find((file) => fs.existsSync(file)) || candidates.at(-1);
+}
+const icon = windowIcon();
 
 let mainWindow = null;
 let apiPort = 8787;
@@ -198,8 +206,16 @@ async function createWindow() {
   mainWindow.on("moved", () => settleClip(mainWindow));
   mainWindow.on("resize", () => clearClip(mainWindow));
   mainWindow.on("resized", () => settleClip(mainWindow));
+  const reveal = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show();
+  }, 8000);
   mainWindow.once("ready-to-show", () => {
-    applyRoundedClip(mainWindow);
+    clearTimeout(reveal);
+    try {
+      applyRoundedClip(mainWindow);
+    } catch {
+      /* A failed window shape should still leave the window on screen. */
+    }
     mainWindow.show();
   });
 
@@ -334,11 +350,16 @@ function speechError(raw) {
 }
 
 app.whenReady().then(async () => {
-  if (process.platform === "win32") app.setAppUserModelId("dev.flint.desktop");
-  app.setName("Flint");
-  Menu.setApplicationMenu(null);
-  await ensureApi();
-  await createWindow();
+  try {
+    if (process.platform === "win32") app.setAppUserModelId("dev.flint.desktop");
+    app.setName("Flint");
+    Menu.setApplicationMenu(null);
+    await ensureApi();
+    await createWindow();
+  } catch (err) {
+    dialog.showErrorBox("Flint did not start", err?.stack || err?.message || String(err));
+    app.exit(1);
+  }
 });
 
 app.on("window-all-closed", () => {

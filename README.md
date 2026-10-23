@@ -59,7 +59,7 @@ If it wants to run a command, it shows you first. Run it, allow it, or skip it. 
 
 | | |
 | --- | --- |
-| Windows | [Flint-Setup-0.1.0.exe](https://github.com/kolan51/flint/releases/latest) |
+| Windows | [Flint Setup](https://github.com/kolan51/flint/releases/latest) |
 | Mac | Disk image, Apple silicon and Intel |
 | Ubuntu | `.deb` and AppImage |
 

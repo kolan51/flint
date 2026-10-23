@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = process.env.FLINT_DATA ? path.resolve(process.env.FLINT_DATA) : path.join(root, "data");
+const defaultWorkspace = process.env.FLINT_DATA
+  ? path.join(path.dirname(dataDir), "workspace")
+  : path.join(root, "workspace");
 
 export const paths = {
   root,
@@ -11,8 +14,14 @@ export const paths = {
   settings: path.join(dataDir, "settings.json"),
   agents: path.join(dataDir, "agents.json"),
   chats: path.join(dataDir, "chats.json"),
-  defaultWorkspace: path.join(root, "workspace"),
+  defaultWorkspace,
 };
+
+function realWorkspace(value) {
+  const dir = String(value || "").trim();
+  if (!dir || /app\.asar([\\/]|$)/i.test(dir)) return paths.defaultWorkspace;
+  return dir;
+}
 
 export const defaultSettings = {
   workspace: paths.defaultWorkspace,
@@ -175,6 +184,7 @@ export async function loadSettings() {
     crew: normalizePair(saved.crew),
     recent: normalizeRecent(saved.recent),
     mcp: normalizeMcp(saved.mcp),
+    workspace: realWorkspace(saved.workspace),
   };
 }
 
@@ -225,7 +235,7 @@ export async function saveChats(chats) {
 }
 
 export async function ensureWorkspace(workspace) {
-  const dir = workspace || paths.defaultWorkspace;
+  const dir = realWorkspace(workspace);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }

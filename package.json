@@ -1,6 +1,6 @@
 {
   "name": "local-bot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Grok-style coding bot for local LLMs and your own APIs.",
   "author": {
     "name": "Jasa Frelih Crv",
@@ -51,6 +51,7 @@
       "dist/**",
       "electron/**",
       "server/**",
+      "src/sessions.js",
       "package.json",
       "node_modules/pyright/**"
     ],
@@ -112,7 +113,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Flint"
+      "shortcutName": "Flint",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer.nsh"
     }
   }
 }
