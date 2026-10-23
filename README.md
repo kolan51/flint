@@ -40,25 +40,15 @@ The [site](https://kolan51.github.io/flint/) is the same window. The buttons up 
 
 ## How a job moves
 
-```mermaid
-flowchart LR
-  folder["Your folder"] --- flint["Flint"]
-  flint --> local["Ollama or llama.cpp"]
-  flint --> cloud["OpenAI, Claude, DeepSeek, and the rest"]
-  flint --> diff["The diff you keep"]
-```
+<p align="center">
+  <img src="site/images/flow.png" width="920" alt="Your folder goes through Flint to a local model, a cloud API, or the diff you keep.">
+</p>
 
 One agent can lead. The others take a piece each, in that same folder, on the model you picked.
 
-```mermaid
-flowchart TB
-  senior["Senior"] --> one["Worker"]
-  senior --> two["Worker"]
-  senior --> three["Worker"]
-  one --> folder["Same folder"]
-  two --> folder
-  three --> folder
-```
+<p align="center">
+  <img src="site/images/crew.png" width="720" alt="Senior hands the same folder to three workers.">
+</p>
 
 ## Bring your own brain
 
