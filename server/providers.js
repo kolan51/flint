@@ -223,11 +223,16 @@ async function* streamOllama(provider, { model, messages, temperature, tools, si
     if (!parsed?.chunk) continue;
     const chunk = parsed.chunk;
     const msg = chunk.message || {};
-    if (msg.thinking) yield { type: "think", text: msg.thinking };
+    if (msg.thinking) {
+      noteOutput(clock, msg.thinking);
+      yield { type: "think", text: msg.thinking };
+    }
     if (msg.content) {
       noteOutput(clock, msg.content);
       for (const event of split.push(msg.content)) yield event;
     }
+    const pulse = pulseStats(clock);
+    if (pulse) yield pulse;
     if (msg.tool_calls?.length) yield { type: "tool_calls", tool_calls: normalizeOllamaTools(msg.tool_calls) };
     if (chunk.done) {
       for (const event of split.flush()) yield event;
@@ -243,6 +248,7 @@ async function* streamOpenAI(provider, { model, messages, temperature, tools, si
     messages: toOpenAIMessages(messages),
     temperature,
     stream: true,
+    stream_options: { include_usage: true },
   };
   if (tools?.length) {
     body.tools = tools;
@@ -273,11 +279,16 @@ async function* streamOpenAI(provider, { model, messages, temperature, tools, si
     if (chunk.timings) timings = chunk.timings;
     const delta = chunk.choices?.[0]?.delta || {};
     const thought = delta.reasoning_content || delta.reasoning || delta.thinking;
-    if (thought) yield { type: "think", text: thought };
+    if (thought) {
+      noteOutput(clock, thought);
+      yield { type: "think", text: thought };
+    }
     if (delta.content) {
       noteOutput(clock, delta.content);
       for (const event of split.push(delta.content)) yield event;
     }
+    const pulse = pulseStats(clock);
+    if (pulse) yield pulse;
     if (delta.tool_calls) {
       for (const part of delta.tool_calls) {
         const idx = part.index ?? 0;
@@ -345,7 +356,12 @@ async function* streamAnthropic(provider, { model, messages, temperature, tools,
         noteOutput(clock, delta.text);
         for (const event of split.push(delta.text)) yield event;
       }
-      if (delta.type === "thinking_delta" && delta.thinking) yield { type: "think", text: delta.thinking };
+      if (delta.type === "thinking_delta" && delta.thinking) {
+        noteOutput(clock, delta.thinking);
+        yield { type: "think", text: delta.thinking };
+      }
+      const pulse = pulseStats(clock);
+      if (pulse) yield pulse;
       if (delta.type === "input_json_delta" && delta.partial_json) {
         const block = blocks.get(chunk.index);
         if (block) block.json += delta.partial_json;
@@ -447,6 +463,14 @@ export function parseStreamLine(line) {
 function noteOutput(clock, text) {
   if (!clock.firstAt) clock.firstAt = Date.now();
   clock.outChars += String(text || "").length;
+}
+
+function pulseStats(clock) {
+  if (!clock.firstAt) return null;
+  const now = Date.now();
+  if (now - (clock.pulsed || 0) < 500) return null;
+  clock.pulsed = now;
+  return { type: "stats", live: true, stats: finishStats(clock) };
 }
 
 function finishStats(clock, { ollama, usage, timings } = {}) {

@@ -1085,8 +1085,12 @@ Reply with the result ${passedFrom.name} should show the user. Do not pass this 
         thinking += event.text;
         sendEvent({ type: "task_think", taskId, agentId: target.id, replyMsgId, text: event.text });
       } else if (event.type === "stats") {
-        workerStats = mergeStats(workerStats, event.stats);
-        sendEvent({ type: "task_stats", taskId, replyMsgId, stats: workerStats });
+        if (event.live) {
+          sendEvent({ type: "task_stats", taskId, replyMsgId, stats: event.stats, live: true });
+        } else {
+          workerStats = mergeStats(workerStats, event.stats);
+          sendEvent({ type: "task_stats", taskId, replyMsgId, stats: workerStats });
+        }
       } else if (event.type === "status") {
         sendEvent({ type: "task_status", taskId, agentId: target.id, replyMsgId, text: event.text });
       } else if (event.type === "command_output" || event.type === "sources") {
@@ -1192,7 +1196,6 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
       if (event.type === "tool_calls") {
         sawTools = true;
         toolCalls = event.tool_calls;
-        break;
       }
       if (event.type === "done" && !sawTools) return;
     }

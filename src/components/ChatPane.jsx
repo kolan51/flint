@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import AgentFace from "./AgentFace.jsx";
 import { agentJob, resolveAgent } from "../faces.js";
 import { createPortal } from "react-dom";
@@ -455,6 +455,7 @@ export default function ChatPane() {
             agent={activeAgent}
             live={busy === "chat" && index === messages.length - 1}
             activity={message.handoffs?.length || index === messages.length - 1 ? activity : null}
+            settings={settings}
             onApply={applyToEditor}
             plan={mode === "plan" && index === messages.length - 1 && message.role === "assistant" && message.content}
             agents={agents}
@@ -662,16 +663,38 @@ function oneLine(text, max = 110) {
   return `${head}…`;
 }
 
-function Fold({ text, children }) {
+const openDetails = new Set();
+
+function RememberDetails({ id, className, children }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || !id) return undefined;
+    function onToggle() {
+      if (node.open) openDetails.add(id);
+      else openDetails.delete(id);
+    }
+    node.addEventListener("toggle", onToggle);
+    node.open = openDetails.has(id);
+    return () => node.removeEventListener("toggle", onToggle);
+  }, [id]);
+  return (
+    <details ref={ref} className={className}>
+      {children}
+    </details>
+  );
+}
+
+function Fold({ id, text, children }) {
   const full = String(text || "").trim();
   if (!full) return null;
   const brief = oneLine(full);
   if (brief === full) return children || <p className="crew-sentence">{full}</p>;
   return (
-    <details className="crew-fold">
+    <RememberDetails id={id} className="crew-fold">
       <summary title={full}><span>{brief}</span></summary>
       {children || <Prose text={full} />}
-    </details>
+    </RememberDetails>
   );
 }
 
@@ -710,19 +733,23 @@ function queueNote(id, activity, handoffs, live) {
   return handoff.note || "Waiting for the model";
 }
 
-function modelQueue(agents, activity, handoffs, live) {
+function providerOf(agent, settings) {
+  return agent?.provider || settings?.activeProvider || "";
+}
+
+function modelQueue(agents, activity, handoffs, live, settings) {
+  if (!handoffs?.length) return [];
+  const byId = new Map((agents || []).map((agent) => [agent.id, agent]));
   const names = new Map((agents || []).map((agent) => [agent.id, agent.name]));
-  for (const handoff of handoffs || []) {
-    if (handoff.agentId && !names.has(handoff.agentId)) names.set(handoff.agentId, handoff.name);
-    if (handoff.name) names.set(handoff.name, handoff.name);
-  }
   const ids = [];
   const push = (id) => { if (id && !ids.includes(id)) ids.push(id); };
-  for (const handoff of handoffs || []) {
-    if (activity?.[handoff.agentId]) push(handoff.agentId);
-    else if (live && handoff.status === "working") push(handoff.agentId || handoff.name);
+  for (const handoff of handoffs) {
+    if (handoff.agentId && !names.has(handoff.agentId)) names.set(handoff.agentId, handoff.name);
+    if (handoff.name) names.set(handoff.name, handoff.name);
+    push(handoff.agentId || handoff.name);
   }
-  for (const agent of agents || []) if (activity?.[agent.id]) push(agent.id);
+  const providers = new Set(ids.map((id) => providerOf(byId.get(id), settings)).filter(Boolean));
+  if (providers.size !== 1) return [];
   const waiting = (id) => /^(Waiting for the model|Waiting|Queued)$/.test(queueNote(id, activity, handoffs, live));
   const holding = (id) => {
     const line = queueNote(id, activity, handoffs, live);
@@ -730,13 +757,12 @@ function modelQueue(agents, activity, handoffs, live) {
   };
   const holder = ids.find(holding);
   const queued = ids.filter((id) => id !== holder && waiting(id));
-  if (!holder && !queued.length) return [];
-  const rows = [];
-  if (holder) rows.push({ id: holder, name: names.get(holder) || "Agent", holding: true });
+  if (!holder || !queued.length) return [];
+  const rows = [{ id: holder, name: names.get(holder) || "Agent", holding: true }];
   for (const id of queued) {
     rows.push({
       id,
-      name: names.get(id) || handoffs?.find((item) => item.agentId === id)?.name || "Agent",
+      name: names.get(id) || handoffs.find((item) => item.agentId === id)?.name || "Agent",
       holding: false,
     });
   }
@@ -758,8 +784,8 @@ function sharedFiles(handoffs, activity) {
     .map(([file, names]) => `${names.join(" and ")} both want ${file}`);
 }
 
-function QueueLine({ agents, activity, handoffs, live }) {
-  const rows = modelQueue(agents, activity, handoffs, live);
+function QueueLine({ agents, activity, handoffs, live, settings }) {
+  const rows = modelQueue(agents, activity, handoffs, live, settings);
   const clashes = sharedFiles(handoffs, activity);
   const holder = rows.find((row) => row.holding);
   const next = rows.find((row) => !row.holding);
@@ -829,7 +855,7 @@ function CommandCards({ message, pending, onDecide }) {
   ));
 }
 
-function Message({ message, agent, live, activity, onApply, plan, agents, touches, onOpenFile, onDecide, pending, onPass }) {
+function Message({ message, agent, live, activity, onApply, plan, agents, touches, onOpenFile, onDecide, pending, onPass, settings }) {
   const answer = (message.content || "").replace(/^\s+/, "");
   const thinking = (message.thinking || "").trim();
   const job = agentJob(agent);
@@ -844,7 +870,7 @@ function Message({ message, agent, live, activity, onApply, plan, agents, touche
             <AgentFace agent={resolveAgent(agents, message.passedFrom)} size="sm" />
             <span>Task from {message.passedFrom.name}</span>
           </div>
-          <Fold text={message.content} />
+          <Fold id={message.id ? `fold:${message.id}` : ""} text={message.content} />
         </div>
       );
     }
@@ -870,12 +896,12 @@ function Message({ message, agent, live, activity, onApply, plan, agents, touche
         </span>
       </div>
       {(thinking || waiting) && (
-        <details className="think">
+        <RememberDetails id={message.id ? `think:${message.id}` : ""} className="think">
           <summary>{message.status || (waiting ? "Waiting for the model" : "Thinking")}</summary>
           {thinking && <p>{thinking}</p>}
-        </details>
+        </RememberDetails>
       )}
-      <QueueLine agents={agents} activity={activity} handoffs={message.handoffs} live={live} />
+      <QueueLine agents={agents} activity={activity} handoffs={message.handoffs} live={live} settings={settings} />
       {message.handoffs?.length > 0 && (
         <div className="crew-board">
           {message.handoffs.map((handoff, handoffIndex) => (
@@ -906,7 +932,7 @@ function Message({ message, agent, live, activity, onApply, plan, agents, touche
         </div>
       )}
       <FileStrip files={message.files} agents={agents} onOpen={onOpenFile} />
-      <StatLine stats={message.stats} />
+      <StatLine stats={message.stats} live={message.liveStats} />
       {plan && (
         <div className="pass-row">
           {agents.filter((item) => item.id !== agent?.id).map((item) => (
@@ -965,30 +991,47 @@ function TaskCard({ handoff, agents = [], activity, touches, onOpen, settled }) 
   return (
     <article className="crew-row" style={{ "--task": owner.color || handoff.color || "var(--amber)" }}>
       {more ? (
-        <details className="crew-fold">
+        <RememberDetails id={handoff.id ? `crew:${handoff.id}` : ""} className="crew-fold">
           <summary onClick={() => file && onOpen?.(file)}>{head}</summary>
           <div className="crew-more">
             {brief !== task && <Prose text={task} />}
             {thinking && <p className="crew-think">{thinking}</p>}
             {reply && <ReplyBody text={reply} />}
           </div>
-        </details>
+        </RememberDetails>
       ) : (
         <div className="crew-static" onClick={() => file && onOpen?.(file)} role={file ? "button" : undefined}>{head}</div>
       )}
       {handoff.conflict && <p className="crew-clash">{fileBase(handoff.conflict)} was left alone. This folder already has edits there.</p>}
-      <StatLine stats={handoff.stats} />
+      <StatLine stats={handoff.stats} live={handoff.liveStats} />
     </article>
   );
 }
 
-function StatLine({ stats }) {
-  if (!stats || (!stats.out && !stats.tps && !stats.ms)) return null;
+function shownStats(stats, live) {
+  if (!live) return stats;
+  if (!stats) return live;
+  const out = (stats.out || 0) + (live.out || 0);
+  const weight = (stats.out || 0) + (live.out || 0);
+  return {
+    in: (stats.in || 0) + (live.in || 0),
+    out,
+    ms: (stats.ms || 0) + (live.ms || 0),
+    tps: weight
+      ? Math.round((((stats.tps || 0) * (stats.out || 0) + (live.tps || 0) * (live.out || 0)) / weight) * 10) / 10
+      : live.tps || 0,
+    approx: Boolean(stats.approx || live.approx),
+  };
+}
+
+function StatLine({ stats, live }) {
+  const row = shownStats(stats, live);
+  if (!row || (!row.out && !row.tps && !row.ms)) return null;
   const bits = [];
-  if (stats.in) bits.push(`${stats.in} in`);
-  if (stats.out) bits.push(`${stats.approx ? "~" : ""}${stats.out} tok`);
-  if (stats.tps) bits.push(`${stats.tps} tok/s`);
-  if (stats.ms) bits.push(`${(stats.ms / 1000).toFixed(1)}s`);
+  if (row.in) bits.push(`${row.in} in`);
+  if (row.out) bits.push(`${row.approx ? "~" : ""}${row.out} tok`);
+  if (row.tps) bits.push(`${row.tps} tok/s`);
+  if (row.ms) bits.push(`${(row.ms / 1000).toFixed(1)}s`);
   return <div className="msg-stats">{bits.map((bit) => <span key={bit}>{bit}</span>)}</div>;
 }
 

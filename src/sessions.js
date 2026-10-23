@@ -51,6 +51,81 @@ export function toBook(value) {
   return { active: "s_current", items: [blank("s_current", "New session")] };
 }
 
+function isGenericTitle(title) {
+  return /^(new session|current|empty chat|session)$/i.test(String(title || "").trim());
+}
+
+function chapterMessages(book, agentId, chats, item) {
+  if (item.id === book?.active && chats && Object.prototype.hasOwnProperty.call(chats, agentId)) {
+    return chats[agentId] || [];
+  }
+  return item.messages || [];
+}
+
+export function shareCrewTitles(books, chats = {}) {
+  let changed = false;
+  const next = {};
+  for (const [agentId, book] of Object.entries(books || {})) {
+    const items = (book?.items || []).map((item) => {
+      if (item.titleEdited || !isGenericTitle(item.title)) return item;
+      const messages = chapterMessages(book, agentId, chats, item);
+      const passed = [...messages].reverse().find((message) => message.role === "user" && message.passedFrom?.agentId);
+      if (!passed) return item;
+      const sourceId = passed.passedFrom.agentId;
+      const source = books[sourceId];
+      if (!source) return item;
+      const linked = (source.items || []).find((chapter) => {
+        const rows = chapterMessages(source, sourceId, chats, chapter);
+        return rows.some((message) => (message.handoffs || []).some((handoff) => handoff.agentId === agentId));
+      });
+      const sourceChapter = linked || (source.items || []).find((chapter) => chapter.id === source.active);
+      const title = String(sourceChapter?.title || "").trim().slice(0, 80);
+      if (!title || isGenericTitle(title) || title === item.title) return item;
+      changed = true;
+      return { ...item, title };
+    });
+    next[agentId] = { ...book, items };
+  }
+  return { books: next, changed };
+}
+
+export function claimStarterTitle(books, fromId, toId) {
+  const lead = books?.[fromId];
+  const leadItem = lead?.items?.find((item) => item.id === lead.active);
+  const title = String(leadItem?.title || "").trim().slice(0, 80);
+  const worker = books?.[toId];
+  if (!title || isGenericTitle(title) || !worker) return { books, changed: false };
+  let changed = false;
+  const items = (worker.items || []).map((item) => {
+    if (item.id !== worker.active || item.titleEdited || !isGenericTitle(item.title) || item.title === title) return item;
+    changed = true;
+    return { ...item, title };
+  });
+  if (!changed) return { books, changed: false };
+  return { books: { ...books, [toId]: { ...worker, items } }, changed: true };
+}
+
+export function renameSharedChapters(books, fromId, previous, title, chats = {}) {
+  const nextTitle = String(title || "").trim().slice(0, 80);
+  const prior = String(previous || "").trim();
+  if (!nextTitle || !prior || nextTitle === prior) return { books, changed: false };
+  let changed = false;
+  const next = { ...books };
+  for (const [agentId, book] of Object.entries(books || {})) {
+    if (agentId === fromId) continue;
+    const items = (book?.items || []).map((item) => {
+      if (item.titleEdited || item.title !== prior) return item;
+      const messages = chapterMessages(book, agentId, chats, item);
+      const fromHere = messages.some((message) => message.role === "user" && message.passedFrom?.agentId === fromId);
+      if (!fromHere) return item;
+      changed = true;
+      return { ...item, title: nextTitle };
+    });
+    next[agentId] = { ...book, items };
+  }
+  return { books: changed ? next : books, changed };
+}
+
 export function tidyChapters(books) {
   let changed = false;
   const next = {};

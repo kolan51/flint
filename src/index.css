@@ -1205,14 +1205,14 @@ img, svg { -webkit-user-drag: none; }
 }
 .session-current::after {
   content: "";
-  width: 5px;
-  height: 5px;
-  margin-top: -3px;
+  width: 6px;
+  height: 6px;
   margin-left: 2px;
-  border-right: 1.5px solid var(--muted);
-  border-bottom: 1.5px solid var(--muted);
-  transform: rotate(45deg);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1px) rotate(45deg);
   flex: none;
+  align-self: center;
 }
 .session-menu {
   position: fixed;
@@ -1643,22 +1643,24 @@ img, svg { -webkit-user-drag: none; }
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1;
   list-style: none;
 }
-.think summary::before {
+.think summary::after {
   content: "";
-  width: 5px;
-  height: 5px;
-  border-right: 1.5px solid var(--muted);
-  border-bottom: 1.5px solid var(--muted);
-  transform: rotate(-45deg);
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1px) rotate(-45deg);
   opacity: 0.8;
 }
-.think[open] summary::before { transform: rotate(45deg); margin-top: -2px; }
+.think[open] summary::after { transform: translateY(1px) rotate(45deg); }
 .think summary::-webkit-details-marker { display: none; }
 .think p {
   margin: 4px 0 0;
@@ -1800,15 +1802,16 @@ img, svg { -webkit-user-drag: none; }
 .crew-fold summary::after {
   content: "";
   flex: 0 0 auto;
+  align-self: center;
   width: 6px;
   height: 6px;
   margin-left: auto;
-  border-right: 1.5px solid var(--muted);
-  border-bottom: 1.5px solid var(--muted);
-  transform: rotate(-45deg);
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1px) rotate(-45deg);
   opacity: 0.7;
 }
-.crew-fold[open] summary::after { transform: rotate(45deg); margin-top: 4px; }
+.crew-fold[open] summary::after { transform: translateY(1px) rotate(45deg); }
 .crew-more { padding: 2px 8px 8px 38px; }
 .crew-more .prose p, .crew-more .prose li { font-size: 13px; }
 .crew-think {

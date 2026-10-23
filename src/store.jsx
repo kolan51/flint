@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { api, streamPost } from "./api.js";
 import { desktop, dirname, relativeTo } from "./desktop.js";
 import { checkRelease, DEFAULT_RELEASE_REPO } from "./updates.js";
-import { packChats, sessionTitle, tidyChapters, unpackChats } from "./sessions.js";
+import { claimStarterTitle, packChats, renameSharedChapters, sessionTitle, shareCrewTitles, tidyChapters, unpackChats } from "./sessions.js";
 
 const AppContext = createContext(null);
 
@@ -368,11 +368,12 @@ export function AppProvider({ children }) {
       setActiveAgentId(nextAgents[0]?.id || "");
       const unpacked = unpackChats(nextChats);
       const tidy = tidyChapters(unpacked.books);
-      booksRef.current = tidy.books;
-      setSessionBooks(tidy.books);
+      const shared = shareCrewTitles(tidy.books, unpacked.active);
+      booksRef.current = shared.books;
+      setSessionBooks(shared.books);
       setChats(unpacked.active);
       chatsRef.current = unpacked.active;
-      if (tidy.changed) api.saveChats(packChats(tidy.books, unpacked.active)).catch(() => {});
+      if (tidy.changed || shared.changed) api.saveChats(packChats(shared.books, unpacked.active)).catch(() => {});
       setTree(tidyTree(workspace.tree));
       setWorkspaceRoot(workspace.root || "");
       workspaceRef.current = workspace.root || "";
@@ -584,14 +585,27 @@ export function AppProvider({ children }) {
     });
   }
 
+  function adoptStarterTitle(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return;
+    ensureBook(toId, chatsRef.current[toId] || []);
+    const claimed = claimStarterTitle(booksRef.current, fromId, toId);
+    if (!claimed.changed) return;
+    rememberBooks(claimed.books);
+  }
+
   async function patchSession(agentId, id, patch) {
     if (!agentId || !id) return;
     const book = booksRef.current[agentId];
     if (!book) return;
+    const previous = book.items.find((item) => item.id === id)?.title;
     const items = book.items.map((item) => (
       item.id === id ? { ...item, ...patch, updated: Date.now() } : item
     ));
-    rememberBooks({ ...booksRef.current, [agentId]: { ...book, items } });
+    let books = { ...booksRef.current, [agentId]: { ...book, items } };
+    if (patch.title && patch.titleEdited && previous && previous !== patch.title) {
+      books = renameSharedChapters(books, agentId, previous, patch.title, chatsRef.current).books;
+    }
+    rememberBooks(books);
     await persistChats(chatsRef.current);
   }
 
@@ -868,9 +882,11 @@ export function AppProvider({ children }) {
         if (event.type === "stats") {
           setChats((prev) => ({
             ...prev,
-            [agentId]: (prev[agentId] || []).map((m) =>
-              m.id === assistant.id ? { ...m, stats: mergeReplyStats(m.stats, event.stats) } : m
-            ),
+            [agentId]: (prev[agentId] || []).map((m) => {
+              if (m.id !== assistant.id) return m;
+              if (event.live) return { ...m, liveStats: event.stats };
+              return { ...m, stats: mergeReplyStats(m.stats, event.stats), liveStats: null };
+            }),
           }));
         }
         if (event.type === "task_start") {
@@ -894,6 +910,7 @@ export function AppProvider({ children }) {
             passedFrom: event.from,
           };
           const spoken = { id: event.replyMsgId, role: "assistant", content: "", thinking: "", status: "" };
+          adoptStarterTitle(agentId, event.to.id);
           setChats((prev) => ({
             ...prev,
             [agentId]: (prev[agentId] || []).map((m) =>
@@ -957,16 +974,22 @@ export function AppProvider({ children }) {
               m.id === assistant.id
                 ? {
                     ...m,
-                    handoffs: (m.handoffs || []).map((h) =>
-                      h.id === event.taskId ? { ...h, stats: event.stats } : h
-                    ),
+                    handoffs: (m.handoffs || []).map((h) => (
+                      h.id === event.taskId
+                        ? (event.live ? { ...h, liveStats: event.stats } : { ...h, stats: event.stats, liveStats: null })
+                        : h
+                    )),
                   }
                 : m
             );
             if (event.replyMsgId) {
               for (const id of Object.keys(next)) {
                 if (!next[id]?.some((m) => m.id === event.replyMsgId)) continue;
-                next[id] = next[id].map((m) => (m.id === event.replyMsgId ? { ...m, stats: event.stats } : m));
+                next[id] = next[id].map((m) => (
+                  m.id === event.replyMsgId
+                    ? (event.live ? { ...m, liveStats: event.stats } : { ...m, stats: event.stats, liveStats: null })
+                    : m
+                ));
               }
             }
             return next;
@@ -1395,6 +1418,7 @@ export function AppProvider({ children }) {
             status: "working",
             note: "",
           };
+          adoptStarterTitle(agentId, event.to.id);
           setChats((prev) => ({
             ...prev,
             [agentId]: (prev[agentId] || []).map((m) => (
@@ -1509,6 +1533,15 @@ export function AppProvider({ children }) {
   useEffect(() => {
     chatsRef.current = chats;
   }, [chats]);
+
+  useEffect(() => {
+    if (!booted) return;
+    const shared = shareCrewTitles(booksRef.current, chatsRef.current);
+    if (!shared.changed) return;
+    booksRef.current = shared.books;
+    setSessionBooks(shared.books);
+    api.saveChats(packChats(shared.books, chatsRef.current)).catch(() => {});
+  }, [booted, chats]);
 
   useEffect(() => {
     tabsRef.current = tabs;

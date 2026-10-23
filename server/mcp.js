@@ -93,7 +93,7 @@ async function session(server, run) {
     await client.request("initialize", {
       protocolVersion: "2024-11-05",
       capabilities: {},
-      clientInfo: { name: "flint", version: "0.1.4" },
+      clientInfo: { name: "flint", version: "0.1.5" },
     });
     client.notify("notifications/initialized", {});
     return await run(client);

@@ -40,6 +40,16 @@ The [site](https://kolan51.github.io/flint/) has the installers at the top. The 
 
 ## How a job moves
 
+One message starts it. The workers take the files.
+
+<p align="center">
+  <a href="site/flint-promo.mp4">
+    <img src="site/images/studio.png" width="920" alt="Watch a job start. The workers take the files.">
+  </a>
+</p>
+
+The picture opens the recording. It also plays on the [site](https://kolan51.github.io/flint/#film).
+
 <p align="center">
   <img src="site/images/flow.png" width="920" alt="Your folder goes through Flint to a local model, a cloud API, or the diff you keep.">
 </p>
