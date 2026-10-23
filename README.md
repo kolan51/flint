@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/kolan51/flint/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/kolan51/flint?style=flat-square&label=stars"></a>
   <a href="https://github.com/kolan51/flint/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/kolan51/flint?style=flat-square&label=release"></a>
-  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, llama.cpp, and your API" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20llama.cpp%20%C2%B7%20your%20API-3d3424?style=flat-square"></a>
+  <a href="https://github.com/kolan51/flint#bring-your-own-brain"><img alt="Works with Ollama, OpenAI, Claude, and DeepSeek" src="https://img.shields.io/badge/works%20with-Ollama%20%C2%B7%20OpenAI%20%C2%B7%20Claude%20%C2%B7%20DeepSeek-3d3424?style=flat-square"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kolan51/flint?style=flat-square&label=license"></a>
 </p>
 
@@ -22,7 +22,7 @@
   <a href="https://github.com/kolan51/flint/releases/latest">Download</a>
 </p>
 
-You already have a model that can write. Maybe it is Ollama on this PC. Maybe it is llama.cpp, LM Studio, or an API key you already pay for. What you are missing is a place to talk to it while it works in the project.
+You already have a model that can write. Maybe it is Ollama on this PC. Maybe it is llama.cpp, LM Studio, ChatGPT, Claude, or DeepSeek. What you are missing is a place to talk to it while it works in the project.
 
 Flint is that place. A desktop chat, a real editor, and a small crew of agents that can split a job. The folder stays where it is.
 
@@ -48,7 +48,10 @@ Paste the address in Settings and pick it in the title bar.
 | --- | --- |
 | Ollama | `http://127.0.0.1:11434` |
 | llama.cpp or LM Studio | usually `http://127.0.0.1:8080` |
-| An API you already use | its OpenAI-compatible address, plus the key |
+| ChatGPT | `https://api.openai.com` plus the key |
+| Claude | `https://api.anthropic.com` plus the key |
+| DeepSeek | `https://api.deepseek.com` plus the key |
+| Groq, Gemini, OpenRouter | their address, plus the key |
 
 A local model and a cloud API can both sit in the list. Switch them from the title bar whenever you want a different one for the chat.
 
@@ -97,7 +100,7 @@ Flint can ask GitHub if a newer version exists. You can turn that off. If an age
 
 **Does it need an account?** No. Chats, agents, and the model address stay on this computer.
 
-**Which models?** Any Ollama server, any llama.cpp or LM Studio server, or an OpenAI-compatible API you already have. Several agents can share one. Flint asks the server how many chats it can hold, and stays inside that.
+**Which models?** Ollama, llama.cpp, LM Studio, ChatGPT, Claude, and DeepSeek. Groq, Gemini, and OpenRouter too. Several agents can share one. Flint asks the server how many chats it can hold, and stays inside that.
 
 **Where do the edits go?** Into the folder you opened. A change sits in the diff until you keep it. A command does not run until you allow it, unless you have set Allow all.
 
