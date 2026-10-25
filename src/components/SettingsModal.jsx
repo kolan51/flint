@@ -181,15 +181,18 @@ export default function SettingsModal() {
   }
 
   return (
-    <div className="modal-back" onClick={() => setModal(null)}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-back" onPointerDown={(event) => { if (event.target === event.currentTarget) setModal(null); }}>
+      <div className="modal modal-sheet" onPointerDown={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <div>
             <h2>Settings</h2>
             <p className="dir-label">Models, commands, search, and updates.</p>
           </div>
-          <button className="ghost" onClick={() => setModal(null)}>Close</button>
+          <button type="button" className="modal-x" aria-label="Close" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); setModal(null); }}>
+            <span className="glyph x" />
+          </button>
         </div>
+        <div className="modal-body">
 
         <h3 className="settings-section">Models</h3>
         <p className="dir-label">A local server, or ChatGPT, Claude, DeepSeek, and the other APIs. The key stays on this machine.</p>
@@ -253,13 +256,13 @@ export default function SettingsModal() {
                     <b>{item.name}</b>
                     <small>{item.baseUrl}</small>
                   </span>
-                  <button className="ghost" onClick={() => setEditing({ id: item.id, name: item.name, kind: item.kind, vendor: vendorOf(item), baseUrl: item.baseUrl, apiKey: item.apiKey || "" })}>
+                  <button type="button" className="ghost" onClick={() => setEditing({ id: item.id, name: item.name, kind: item.kind, vendor: vendorOf(item), baseUrl: item.baseUrl, apiKey: item.apiKey || "" })}>
                     Edit
                   </button>
-                  <button className="ghost" disabled={busy === item.id} onClick={() => testBackend(item)}>
+                  <button type="button" className="ghost" disabled={busy === item.id} onClick={() => testBackend(item)}>
                     {busy === item.id ? "…" : "Test"}
                   </button>
-                  <button className="ghost" onClick={() => removeBackend(item.id)}>Remove</button>
+                  <button type="button" className="ghost" onClick={() => removeBackend(item.id)}>Remove</button>
                 </div>
               );
             })}
@@ -457,6 +460,7 @@ export default function SettingsModal() {
             <button className="btn" type="submit">Add MCP server</button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

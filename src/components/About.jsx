@@ -21,25 +21,27 @@ export default function About() {
   const models = Object.values(settings?.providers || {});
 
   return (
-    <div className="modal-back" onClick={() => setModal(null)}>
-      <div className="modal about" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-back" onPointerDown={(event) => { if (event.target === event.currentTarget) setModal(null); }}>
+      <div className="modal about" onPointerDown={(event) => event.stopPropagation()}>
         <div className="about-top">
           <div className="about-mark">
             <img src="/icon.png" alt="" />
             <div>
               <h2>Flint</h2>
-              <p>0.1.5</p>
+              <p>0.1.6</p>
             </div>
           </div>
-          <button className="ghost" type="button" onClick={() => setModal(null)}>Close</button>
+          <button type="button" className="modal-x" aria-label="Close" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); setModal(null); }}>
+            <span className="glyph x" />
+          </button>
         </div>
         <p className="about-lead">
-          A desktop studio for models you run yourself. Several agents share one folder and can hand work to each other.
+          A desktop app for a local model, or an API you already have. Several agents share one folder.
         </p>
         <div className="about-stats">
           <span>{models.length} {models.length === 1 ? "server" : "servers"}</span>
           <span>{agents.length} {agents.length === 1 ? "agent" : "agents"}</span>
-          <span>Local only</span>
+          <span>Your folder</span>
         </div>
         <h3>Shortcuts</h3>
         <ul className="keys">

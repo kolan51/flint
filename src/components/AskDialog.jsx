@@ -32,8 +32,8 @@ export default function AskDialog() {
   }
 
   return (
-    <div className="modal-back ask-back" onClick={() => finishAsk(askBox.input ? null : false)}>
-      <form className="ask" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
+    <div className="modal-back ask-back" onPointerDown={(event) => { if (event.target === event.currentTarget) finishAsk(askBox.input ? null : false); }}>
+      <form className="ask" onPointerDown={(event) => event.stopPropagation()} onSubmit={submit}>
         <h2>{askBox.title || "Are you sure?"}</h2>
         {askBox.body && <p>{askBox.body}</p>}
         {askBox.input && (

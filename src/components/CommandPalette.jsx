@@ -74,8 +74,8 @@ export default function CommandPalette() {
   }
 
   return (
-    <div className="modal-back palette-back" onClick={() => app.setModal(null)}>
-      <div className="palette" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-back palette-back" onPointerDown={(event) => { if (event.target === event.currentTarget) app.setModal(null); }}>
+      <div className="palette" onPointerDown={(event) => event.stopPropagation()}>
         <input
           ref={input}
           value={query}

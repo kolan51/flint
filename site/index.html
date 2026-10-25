@@ -110,6 +110,7 @@
     .downloads .alt a strong { color: var(--ink); font-weight: 560; font-size: 16px; }
     .downloads .alt a:hover strong { color: #fff; }
     .note { margin: 0; color: var(--dim); font-size: 15px; letter-spacing: -0.01em; }
+    .hero .note { max-width: 46em; margin: 8px auto 0; line-height: 1.45; }
     .stage-wrap { position: relative; margin: 56px auto 0; }
     .film { padding: 72px 0 0; text-align: center; }
     .film h2 {
@@ -449,7 +450,8 @@
       border: 0; background: transparent; color: #8d8476; font: inherit; cursor: pointer;
     }
     .shead button { height: 30px; padding: 0 10px; border-radius: 8px; }
-    .shead button:hover { background: #1c1b19; color: #ece7dc; }
+    .shead button.sx { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; }
+    .shead button:hover, .shead button.sx:hover { background: #c44536; color: #fff; }
     .stabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid #262420; }
     .stabs button { padding: 8px 10px; border-bottom: 2px solid transparent; }
     .stabs button.on { color: #ece7dc; border-bottom-color: #f4b860; }
@@ -632,7 +634,7 @@
       <p class="lede">Name as many agents as the job needs. One of them can split the work. The others do it in the folder you open. You see who touched what.</p>
       <div class="marks">
         <a id="mark-stars" href="https://github.com/kolan51/flint"><b>stars</b> <span>–</span></a>
-        <a id="mark-release" href="https://github.com/kolan51/flint/releases/latest"><b>release</b> <span>0.1.5</span></a>
+        <a id="mark-release" href="https://github.com/kolan51/flint/releases/latest"><b>release</b> <span>0.1.6</span></a>
         <a href="https://github.com/kolan51/flint#your-model"><b>works with</b> <span>Ollama · OpenAI · Claude · more</span></a>
         <a href="https://github.com/kolan51/flint/blob/main/LICENSE"><b>license</b> <span>MIT</span></a>
       </div>
@@ -643,6 +645,7 @@
           <a id="linux" href="https://github.com/kolan51/flint/releases/latest"><strong>Linux</strong><span>AppImage</span></a>
         </div>
       </div>
+      <p class="note">Windows may warn before the installer opens. On a Mac, the first open is blocked until you allow Flint in Privacy &amp; Security. These builds are not signed yet.</p>
     </section>
 
     <div class="stage-wrap">
@@ -729,7 +732,7 @@
     <section class="film" id="film">
       <h2>Watch a job start.</h2>
       <p>One message. The workers take the files. This is a real Flint window.</p>
-      <img src="flint-promo.gif" alt="A job starts. The workers take the files.">
+      <img src="flint-promo.gif?v=2" alt="A job starts. The workers take the files.">
     </section>
 
     <section class="start" id="start">
@@ -774,7 +777,7 @@
     </section>
   </main>
   <footer>
-    <span>Flint 0.1.5</span>
+    <span>Flint 0.1.6</span>
     <div class="footer-links">
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
@@ -800,7 +803,7 @@
     }
     function useLocalInstaller() {
       const win = document.getElementById("win");
-      win.href = "Flint-Setup-0.1.5.exe";
+      win.href = "Flint-Setup-0.1.6.exe";
       win.querySelector("span").textContent = "Installer on this PC";
       markUnbuilt("mac", "Built on a Mac");
       markUnbuilt("linux", "Built on Linux");

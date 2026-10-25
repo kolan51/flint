@@ -15,7 +15,11 @@ export default function FieldSelect({ value, onChange, options, ariaLabel }) {
       setOpen(false);
     }
     function onKey(event) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", onKey);

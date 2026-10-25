@@ -106,12 +106,14 @@ function roundedRects(width, height, radius) {
 let clipTimer = null;
 
 function clearClip(win) {
+  if (process.platform === "darwin") return;
   if (!win || win.isDestroyed() || win.isMaximized()) return;
   clearTimeout(clipTimer);
   win.setShape([]);
 }
 
 function applyRoundedClip(win) {
+  if (process.platform === "darwin") return;
   if (!win || win.isDestroyed()) return;
   if (win.isMaximized()) {
     win.setShape([]);

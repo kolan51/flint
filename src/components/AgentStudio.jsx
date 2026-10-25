@@ -84,15 +84,18 @@ export default function AgentStudio() {
   }
 
   return (
-    <div className="modal-back" onClick={() => setModal(null)}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-back" onPointerDown={(event) => { if (event.target === event.currentTarget) setModal(null); }}>
+      <div className="modal modal-sheet" onPointerDown={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <div>
             <h2>{draft.name || "Agent"}</h2>
             <p className="dir-label">Name it and say how it should work.</p>
           </div>
-          <button type="button" className="ghost" onClick={() => setModal(null)}>Close</button>
+          <button type="button" className="modal-x" aria-label="Close" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); setModal(null); }}>
+            <span className="glyph x" />
+          </button>
         </div>
+        <div className="modal-body">
         <label>
           Name
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
@@ -175,6 +178,7 @@ export default function AgentStudio() {
         <div className="row end">
           <button type="button" className="ghost" onClick={remove}>Delete</button>
           <button type="button" className="btn" onClick={save}>Save</button>
+        </div>
         </div>
       </div>
     </div>

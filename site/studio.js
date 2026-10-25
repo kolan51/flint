@@ -140,7 +140,7 @@ if (root) {
         <div class="srow"><button type="button" data-act="save-settings">Save</button></div>`;
     }
     return `<form class="sheet settings-mock" id="settingsForm">
-      <div class="shead"><h4>Settings</h4><button type="button" data-act="close-settings">Close</button></div>
+      <div class="shead"><h4>Settings</h4><button type="button" class="sx" data-act="close-settings" aria-label="Close"><span class="glyph x"></span></button></div>
       <div class="stabs">${tabs}</div>
       ${body}
     </form>`;
@@ -262,7 +262,7 @@ if (root) {
       .concat(state.models.map((name) => `<option value="${esc(name)}"${agent.model === name ? " selected" : ""}>${esc(name)}</option>`))
       .join("");
     return `<form class="sheet agent-sheet" id="agentForm">
-      <div class="shead"><h4>${esc(agent.name || "Agent")}</h4><button type="button" data-act="close-edit">Close</button></div>
+      <div class="shead"><h4>${esc(agent.name || "Agent")}</h4><button type="button" class="sx" data-act="close-edit" aria-label="Close"><span class="glyph x"></span></button></div>
       <p>Name it and say how it should work.</p>
       <div class="sgrid">
         <label class="wide">Name<input data-field="name" value="${esc(agent.name)}"></label>
@@ -494,7 +494,7 @@ if (walkRoot) {
       title: "Open Flint",
       label: "Open",
       text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. The window is the app. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
-      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.5</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
+      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.6</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
       boot: true,
     },
     {

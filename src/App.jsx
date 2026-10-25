@@ -93,6 +93,16 @@ export default function App() {
   }, [setModal]);
 
   useEffect(() => {
+    if (!modal) return undefined;
+    function onKey(event) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setModal(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal, setModal]);
+
+  useEffect(() => {
     return desktop.onMenu((action) => {
       if (action === "openFolder") openWorkspaceFolder();
       if (action === "openFiles") openLocalFiles();

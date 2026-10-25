@@ -43,7 +43,7 @@ The [site](https://kolan51.github.io/flint/) has the installers at the top. The 
 One message starts it. The workers take the files.
 
 <p align="center">
-  <img src="site/flint-promo.gif" width="920" alt="A job starts. The workers take the files.">
+  <img src="site/flint-promo.gif?v=2" width="920" alt="A job starts. The workers take the files.">
 </p>
 
 <p align="center">
@@ -98,6 +98,8 @@ Installers for Windows, macOS, and Ubuntu are on the [latest release](https://gi
 
 Windows may warn before the installer opens. The build is not signed yet.
 
+macOS blocks the first open for the same reason: there is no Apple certificate on these builds. Right-click Flint, choose Open, then Open. The same switch is in System Settings, Privacy & Security, under Open Anyway.
+
 Or [open the site](https://kolan51.github.io/flint/) and press the button for your machine. Same files.
 
 ## From this repo
@@ -128,6 +130,8 @@ Flint can ask GitHub if a newer version exists. You can turn that off. If an age
 **Where do the edits go?** Into the folder you opened. A change sits in the diff until you keep it. A command does not run until you allow it, unless you have set Allow all.
 
 **Windows warns that the installer is not signed.** That warning is real. There is no signing certificate on these builds yet.
+
+**macOS says it cannot check Flint for malicious software.** Same cause. Right-click the app, choose Open, then Open. Or allow it in System Settings, Privacy & Security.
 
 ## License
 

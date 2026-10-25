@@ -2228,13 +2228,23 @@ input[type="checkbox"] {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.46);
-  backdrop-filter: blur(8px);
   display: grid;
   place-items: center;
-  z-index: 20;
+  z-index: 30;
   padding: 16px;
+  -webkit-app-region: no-drag;
+}
+.modal-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
 }
 .modal {
+  position: relative;
+  z-index: 1;
   width: min(760px, 100%);
   max-height: min(860px, calc(100vh - 32px));
   overflow: auto;
@@ -2243,7 +2253,41 @@ input[type="checkbox"] {
   border-radius: 16px;
   box-shadow: var(--shadow);
   padding: 18px;
+  -webkit-app-region: no-drag;
 }
+.modal.modal-sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.modal-sheet .modal-head {
+  flex: none;
+  align-items: center;
+  margin: 0;
+  padding: 16px 14px 12px 18px;
+  background: var(--bg-2);
+}
+.modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 18px 18px;
+}
+.modal-x {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  -webkit-app-region: no-drag;
+}
+.modal-x:hover { background: #c44536; border-color: transparent; color: #fff; }
 .modal-wide { width: min(980px, 100%); padding: 0; overflow: hidden; display: flex; flex-direction: column; }
 .modal-head {
   display: flex;
