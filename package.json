@@ -1,6 +1,6 @@
 {
   "name": "local-bot",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "desktopName": "flint.desktop",
   "description": "A desktop app for a local model, or an API you already have.",
   "author": {

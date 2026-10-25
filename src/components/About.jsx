@@ -7,6 +7,7 @@ const shortcuts = [
   ["Ctrl Shift O", "Open folder"],
   ["Ctrl S", "Save"],
   ["Enter", "Send"],
+  ["Esc", "Stop the reply"],
   ["/plan", "Plan only"],
   ["/pass", "Hand the plan to an agent"],
   ["/diff", "Review edits"],
@@ -28,7 +29,7 @@ export default function About() {
             <img src="/icon.png" alt="" />
             <div>
               <h2>Flint</h2>
-              <p>0.1.6</p>
+              <p>0.1.7</p>
             </div>
           </div>
           <button type="button" className="modal-x" aria-label="Close" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); setModal(null); }}>

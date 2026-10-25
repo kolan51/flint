@@ -97,6 +97,12 @@ function FileNode({ node, depth, closed, toggle, onMenu, activePath, openFile })
           type="button"
           className="tree-hit"
           title={node.path}
+          draggable={!isDir}
+          onDragStart={(event) => {
+            if (isDir) return;
+            event.dataTransfer.setData("text/plain", `@${node.path}`);
+            event.dataTransfer.effectAllowed = "copy";
+          }}
           onClick={() => (isDir ? toggle(node.path) : openFile(node.path))}
         >
           <TreeGlyph name={node.name} dir={isDir} open={open} />

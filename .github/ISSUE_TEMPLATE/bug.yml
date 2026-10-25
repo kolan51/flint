@@ -25,6 +25,6 @@ body:
     id: version
     attributes:
       label: Flint version
-      placeholder: 0.1.6
+      placeholder: 0.1.7
     validations:
       required: true

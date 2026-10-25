@@ -809,13 +809,14 @@ export function AppProvider({ children }) {
     return blocks.join("\n\n");
   }
 
-  async function sendChat(text, images = []) {
+  async function sendChat(text, images = [], options = {}) {
     if ((!text.trim() && !images.length) || !settings) return;
     const agentId = activeAgentId;
     const history = chats[agentId] || [];
-    const attached = await mentionContext(text, activeTab?.path);
+    const includeOpen = options.includeOpen !== false;
+    const attached = await mentionContext(text, includeOpen ? activeTab?.path : "");
     const context = [
-      activeTab ? `[Open file: ${activeTab.path}]\n\`\`\`${activeTab.language}\n${activeTab.content.slice(0, 8000)}\n\`\`\`` : "",
+      includeOpen && activeTab ? `[Open file: ${activeTab.path}]\n\`\`\`${activeTab.language}\n${activeTab.content.slice(0, 8000)}\n\`\`\`` : "",
       attached,
     ].filter(Boolean).join("\n\n");
     const book = booksRef.current[agentId];

@@ -494,7 +494,7 @@ if (walkRoot) {
       title: "Open Flint",
       label: "Open",
       text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. The window is the app. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
-      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.6</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
+      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.7</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
       boot: true,
     },
     {

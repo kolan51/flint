@@ -3,6 +3,7 @@ import AgentFace from "./AgentFace.jsx";
 import { agentJob, resolveAgent } from "../faces.js";
 import { createPortal } from "react-dom";
 import { useApp } from "../store.jsx";
+import { desktop, relativeTo } from "../desktop.js";
 import { nearBottom } from "../scroll.js";
 
 function flattenFiles(nodes, into = []) {
@@ -66,6 +67,9 @@ export default function ChatPane() {
     decideCommand,
     settings,
     setCommandMode,
+    activeTab,
+    workspaceRoot,
+    modal,
   } = useApp();
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [soFar, setSoFar] = useState("");
@@ -81,6 +85,8 @@ export default function ChatPane() {
   const [text, setText] = useState("");
   const [mention, setMention] = useState(null);
   const [images, setImages] = useState([]);
+  const [withFile, setWithFile] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [hearing, setHearing] = useState(false);
   const [micNote, setMicNote] = useState("");
@@ -152,6 +158,21 @@ export default function ChatPane() {
     const node = scroller.current;
     if (node && pinned.current) node.scrollTop = node.scrollHeight;
   }, [messages, busy]);
+
+  useEffect(() => {
+    setWithFile(true);
+  }, [activeTab?.path]);
+
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key !== "Escape" || event.defaultPrevented || modal) return;
+      if (busy !== "chat" || naming || sessionsOpen) return;
+      event.preventDefault();
+      stopChat();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, modal, naming, sessionsOpen, stopChat]);
 
   useEffect(() => {
     pinned.current = true;
@@ -294,7 +315,35 @@ export default function ChatPane() {
     setText("");
     setMention(null);
     setImages([]);
-    sendChat(next, shots);
+    sendChat(next, shots, { includeOpen: withFile });
+  }
+
+  function insertMention(path) {
+    const token = `@${String(path || "").replaceAll("\\", "/")}`;
+    if (token === "@") return;
+    setText((current) => (current.includes(token) ? current : `${current}${current && !/\s$/.test(current) ? " " : ""}${token} `));
+    setMention(null);
+    requestAnimationFrame(() => box.current?.focus());
+  }
+
+  function takeDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(false);
+    const fromDisk = [...event.dataTransfer.files]
+      .map((file) => desktop.pathForFile(file))
+      .map((abs) => relativeTo(workspaceRoot, abs))
+      .filter((rel) => rel);
+    const plain = event.dataTransfer.getData("text/plain");
+    const named = fromDisk[0] || (plain.startsWith("@") ? plain.slice(1) : "");
+    if (named) insertMention(named);
+  }
+
+  function askAgain(index) {
+    const prior = [...messages.slice(0, index)].reverse().find((item) => item.role === "user" && item.content && !item.passedFrom);
+    if (!prior || busy) return;
+    pinned.current = true;
+    sendChat(prior.content, prior.images || [], { includeOpen: withFile });
   }
 
   function addImage(file) {
@@ -464,11 +513,17 @@ export default function ChatPane() {
             onOpenFile={openTouched}
             onDecide={decideCommand}
             onPass={(name) => passPlan(name, message.content)}
+            canRetry={busy !== "chat" && index === messages.length - 1}
+            onRetry={() => askAgain(index)}
           />
         ))}
       </div>
       <form
-        className="composer"
+        className={`composer${dragOver ? " drop" : ""}`}
+        onDragEnter={(event) => { event.preventDefault(); setDragOver(true); }}
+        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDragOver(false); }}
+        onDrop={takeDrop}
         onSubmit={(e) => {
           e.preventDefault();
           if (text.startsWith("/")) runCommand(text);
@@ -507,6 +562,16 @@ export default function ChatPane() {
           </div>
         )}
         <div className="composer-box">
+        {activeTab && (
+          <button
+            type="button"
+            className={`with-file${withFile ? " on" : ""}`}
+            title={withFile ? "This file goes with the next message." : "The open file stays out of the next message."}
+            onClick={() => setWithFile((on) => !on)}
+          >
+            {withFile ? "With" : "Without"} {fileBase(activeTab.path)}
+          </button>
+        )}
         <textarea
           ref={box}
           value={text}
@@ -855,7 +920,30 @@ function CommandCards({ message, pending, onDecide }) {
   ));
 }
 
-function Message({ message, agent, live, activity, onApply, plan, agents, touches, onOpenFile, onDecide, pending, onPass, settings }) {
+function CopyButton({ text, label = "Copy" }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="ghost"
+      onClick={async () => {
+        const value = String(text || "");
+        if (!value) return;
+        try {
+          await navigator.clipboard.writeText(value);
+        } catch {
+          return;
+        }
+        setDone(true);
+        window.setTimeout(() => setDone(false), 1200);
+      }}
+    >
+      {done ? "Copied" : label}
+    </button>
+  );
+}
+
+function Message({ message, agent, live, activity, onApply, plan, agents, touches, onOpenFile, onDecide, pending, onPass, settings, canRetry, onRetry }) {
   const answer = (message.content || "").replace(/^\s+/, "");
   const thinking = (message.thinking || "").trim();
   const job = agentJob(agent);
@@ -894,6 +982,14 @@ function Message({ message, agent, live, activity, onApply, plan, agents, touche
           <b>{agent?.name || "Agent"}</b>
           {job && <small>{job}</small>}
         </span>
+        {(answer || canRetry) && (
+          <span className="who-actions">
+            {answer && <CopyButton text={answer} />}
+            {canRetry && (
+              <button type="button" className="ghost" onClick={onRetry}>Ask again</button>
+            )}
+          </span>
+        )}
       </div>
       {(thinking || waiting) && (
         <RememberDetails id={message.id ? `think:${message.id}` : ""} className="think">
@@ -915,7 +1011,10 @@ function Message({ message, agent, live, activity, onApply, plan, agents, touche
           <div className="code" key={i}>
             <header>
               <span>{part.lang || "code"}</span>
-              <button className="ghost" onClick={() => onApply(part.code)}>Apply</button>
+              <span className="code-actions">
+                <CopyButton text={part.code} />
+                <button type="button" className="ghost" onClick={() => onApply(part.code)}>Apply</button>
+              </span>
             </header>
             <pre>{part.code}</pre>
           </div>

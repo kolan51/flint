@@ -1572,6 +1572,13 @@ img, svg { -webkit-user-drag: none; }
 .who-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .who-copy b { font-weight: 600; }
 .who-copy small { color: var(--muted); font-size: 11px; font-weight: 500; }
+.who-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.who-actions .ghost, .code-actions .ghost {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 550;
+}
+.code-actions { display: flex; gap: 6px; }
 .turn .say {
   margin: 0;
   max-width: 100%;
@@ -1911,6 +1918,21 @@ img, svg { -webkit-user-drag: none; }
 }
 
 .composer { position: relative; min-width: 0; padding: 10px 12px 12px; border-top: 0; }
+.composer.drop .composer-box { border-color: var(--amber-dim); }
+.with-file {
+  display: inline-flex;
+  max-width: calc(100% - 12px);
+  margin: 2px 6px 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+}
+.with-file.on { border-color: var(--amber-dim); color: var(--amber); }
+.with-file span, .with-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composer-box { min-width: 0; max-width: 100%; }
 .composer .cmd-wait { margin: 0 2px 8px; }
 .composer-box {

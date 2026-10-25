@@ -82,6 +82,8 @@ A local model and a cloud API can both sit in the list. Switch them from the tit
 
 Fix the bug. Add the page. Explain this file. Rename it across the project.
 
+The open file goes with the next message. The row above the box says With, and a click leaves that file out. Drag a file from the tree into the chat to name it with `@`. Copy sits on a reply and on a block of code. Ask again sends the same message once more. Esc stops the reply.
+
 For a bigger job, name one agent to lead and call it whatever you want. It hands each of the others a piece, and they work in the same folder together. Add as many as the job needs. Flint checks how many chats your server can hold at once, and keeps to that.
 
 If it wants to run a command, it shows you first. Run it, allow it, or skip it. There is a Plan mode too, for when you only want it to read.
