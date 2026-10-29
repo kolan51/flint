@@ -610,15 +610,26 @@
       .flint.mini .fbody, .flint.mini.boot { grid-template-columns: 1fr; }
       .flint.mini .fside, .flint.mini .fchat, .flint.mini .feditor { max-height: none; overflow: visible; }
       .sgrid { grid-template-columns: 1fr; }
-      .walk-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+      .walk-nav {
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+        grid-template-rows: auto auto;
+        column-gap: 8px;
+        row-gap: 22px;
+        align-items: center;
+        margin-top: 28px;
+      }
+      #walkPrev { grid-column: 1; grid-row: 2; }
+      #walkNext { grid-column: 3; grid-row: 2; }
       .arrow { width: 44px; height: 44px; }
       .dots {
+        grid-column: 1 / -1;
+        grid-row: 1;
         position: relative;
         overflow: visible;
         justify-content: center;
         gap: 16px;
-        min-height: 58px;
-        padding-bottom: 26px;
+        min-height: 0;
+        padding-bottom: 0;
       }
       .dots::before { display: none; }
       .dots button { position: static; flex: none; min-width: 0; gap: 0; font-size: 13px; font-weight: 600; }
@@ -628,7 +639,9 @@
         position: absolute;
         left: 0;
         right: 0;
-        bottom: 0;
+        top: calc(100% + 22px);
+        height: 44px;
+        line-height: 44px;
         text-align: center;
         white-space: nowrap;
         color: var(--ink);
