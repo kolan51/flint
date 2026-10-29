@@ -378,13 +378,28 @@
     .fdock-b .add { color: #8fbf7f; }
     .fdock-b .del { color: #e07a5f; }
     @media (max-width: 800px) {
-      .flint { height: auto; grid-template-rows: 52px auto auto auto; }
-      .fbody, .flint.side-off .fbody, .flint.chat-only .fbody { grid-template-columns: 1fr; }
-      .fside, .fchat { border: 0; border-top: 1px solid #262420; max-height: 220px; }
-      .feditor { min-height: 180px; max-height: 260px; }
-      .fdock { max-height: 140px; }
-      .fmodel { max-width: 46vw; }
+      .flint { height: auto; grid-template-rows: auto auto auto auto; }
+      .fbody, .flint.side-off .fbody, .flint.chat-only .fbody, .flint.mini .fbody { grid-template-columns: 1fr; }
+      .fside, .fchat {
+        border-right: 0;
+        border-left: 0;
+        border-top: 1px solid #262420;
+        max-height: none;
+        overflow: visible;
+      }
+      .feditor { min-height: 0; max-height: none; }
+      .ftabs { overflow-x: auto; }
+      .fcode { flex: none; overflow: visible; max-height: none; }
+      .fgutter { display: none; }
+      .flines { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; padding: 14px 14px 20px; }
+      .fmsgs { overflow: visible; min-height: 0; }
+      .fdock { max-height: none; }
+      .fdock-b { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 200px; }
+      .fmodel { max-width: 42vw; }
       .fmodel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fagent small, .ffile, .frow-crew em { white-space: normal; overflow: visible; text-overflow: unset; }
+      .server-card div { flex-wrap: wrap; }
+      .server-card div span:last-child { overflow-wrap: anywhere; }
     }
     .bridge { padding: 96px 0 12px; }
     .bridge h2 {
@@ -591,23 +606,48 @@
       .facts { padding: 72px 0 8px; }
       .facts-grid { grid-template-columns: 1fr; }
       .facts article, .facts article:nth-child(even) { padding: 22px 0; border-left: 0; }
-      .flint.mini { height: auto; min-height: 0; margin-top: 20px; }
+      .flint.mini { height: auto; min-height: 0; margin-top: 20px; grid-template-rows: auto; }
       .flint.mini .fbody, .flint.mini.boot { grid-template-columns: 1fr; }
-      .walk-nav { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 8px; }
-      .arrow { width: 40px; height: 40px; }
-      .dots { overflow-x: auto; justify-content: flex-start; gap: 4px; padding-bottom: 6px; }
+      .flint.mini .fside, .flint.mini .fchat, .flint.mini .feditor { max-height: none; overflow: visible; }
+      .sgrid { grid-template-columns: 1fr; }
+      .walk-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+      .arrow { width: 44px; height: 44px; }
+      .dots {
+        position: relative;
+        overflow: visible;
+        justify-content: center;
+        gap: 16px;
+        min-height: 58px;
+        padding-bottom: 26px;
+      }
       .dots::before { display: none; }
-      .dots button { flex: none; min-width: 64px; font-size: 12px; }
+      .dots button { position: static; flex: none; min-width: 0; gap: 0; font-size: 13px; font-weight: 600; }
+      .dots button span { display: none; }
+      .dots button.on span {
+        display: block;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        text-align: center;
+        white-space: nowrap;
+        color: var(--ink);
+      }
       .fwins { display: none; }
       .sheet { width: min(460px, calc(100% - 24px)); }
       body > footer { flex-wrap: wrap; }
     }
     @media (max-width: 520px) {
       .fbrand b { display: none; }
+      .fbar { padding: 0 8px; }
       .ftools button { width: 32px; height: 32px; }
+      .fmodel { max-width: 36vw; font-size: 13px; }
       .downloads a.primary strong { font-size: 16px; }
       .alt { gap: 8px 16px; }
+      .keys { gap: 8px; }
       .keys span { flex-wrap: wrap; }
+      .boot-in .mark { width: min(260px, 100%); padding: 28px 16px 22px; }
+      .sheet, .settings-mock { width: min(460px, calc(100% - 20px)); }
     }
   </style>
 </head>
