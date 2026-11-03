@@ -29,7 +29,7 @@ header {
   backdrop-filter: saturate(180%) blur(20px);
 }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; text-decoration: none; }
-.brand svg { width: 40px; height: 40px; }
+.brand img { width: 40px; height: 40px; border-radius: 10px; display: block; }
 nav { display: flex; gap: 28px; align-items: center; color: var(--muted); font-size: 16px; }
 nav a { text-decoration: none; }
 nav a[aria-current="page"] { color: var(--ink); }

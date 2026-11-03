@@ -1033,7 +1033,7 @@ img, svg { -webkit-user-drag: none; }
   font-size: 12px;
 }
 .face-pop-pic:hover { color: var(--ink); background: var(--hover); }
-.face-mark { max-width: 220px; }
+.face-mark { max-width: 220px; margin-top: 14px; }
 .agent-side {
   margin-left: auto;
   display: flex;

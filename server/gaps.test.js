@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseStreamLine } from "./providers.js";
+import { parseStreamLine, modelsEndpoint } from "./providers.js";
 import { commandAllowed, commandMatches } from "./commands.js";
 import { nearBottom } from "../src/scroll.js";
 import { parseTestOutput } from "./tests.js";
@@ -10,6 +10,15 @@ import { typescriptError } from "./syntax.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+
+test("a llama.cpp address is not asked for an Ollama tag list", () => {
+  const ollama = modelsEndpoint({ kind: "ollama", baseUrl: "http://192.168.1.214:11434" });
+  assert.equal(ollama.kind, "ollama");
+  assert.equal(ollama.url, "http://192.168.1.214:11434/api/tags");
+  const local = modelsEndpoint({ kind: "ollama", baseUrl: "http://192.168.1.214:8080/v1" });
+  assert.equal(local.kind, "openai");
+  assert.equal(local.url, "http://192.168.1.214:8080/v1/models");
+});
 
 test("colon keepalive is not JSON", () => {
   assert.equal(parseStreamLine(":"), null);

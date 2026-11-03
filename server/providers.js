@@ -27,12 +27,30 @@ export function getProvider(settings, id) {
   return { ...provider, id: key, baseUrl: trimSlash(provider.baseUrl) };
 }
 
+export function modelsEndpoint(provider) {
+  const base = trimSlash(provider.baseUrl);
+  if (provider.kind === "anthropic") return { kind: "anthropic", url: `${base}/v1/models` };
+  if (provider.kind === "ollama" && !/\/(?:v1|openai)$/i.test(base)) return { kind: "ollama", url: `${base}/api/tags` };
+  return { kind: "openai", url: modelsUrl(base) };
+}
+
+async function openAiModels(provider, signal) {
+  const res = await fetch(modelsUrl(provider.baseUrl), { headers: headers(provider), signal });
+  if (!res.ok) throw new Error(await errorText(res, "Model list"));
+  const data = await res.json();
+  return (data.data || []).map((m) => m.id).filter(Boolean);
+}
+
 export async function listModels(provider, signal) {
-  if (provider.kind === "ollama") {
-    const res = await fetch(`${provider.baseUrl}/api/tags`, { signal });
-    if (!res.ok) throw new Error(await errorText(res, "Ollama models"));
-    const data = await res.json();
-    return (data.models || []).map((m) => m.name).filter(Boolean);
+  const endpoint = modelsEndpoint(provider);
+  if (endpoint.kind === "ollama") {
+    const res = await fetch(endpoint.url, { signal });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.models || []).map((m) => m.name).filter(Boolean);
+    }
+    if (res.status !== 404) throw new Error(await errorText(res, "Ollama models"));
+    return openAiModels(provider, signal);
   }
   if (provider.kind === "anthropic") {
     if (!provider.apiKey) throw new Error("Claude needs an API key.");
@@ -48,10 +66,7 @@ export async function listModels(provider, signal) {
     return (data.data || []).map((m) => m.id).filter(Boolean);
   }
 
-  const res = await fetch(modelsUrl(provider.baseUrl), { headers: headers(provider), signal });
-  if (!res.ok) throw new Error(await errorText(res, "Model list"));
-  const data = await res.json();
-  return (data.data || []).map((m) => m.id).filter(Boolean);
+  return openAiModels(provider, signal);
 }
 
 export async function probeProvider(provider, timeoutMs) {
