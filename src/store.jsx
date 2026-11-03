@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { AppContext } from "./appContext.js";
 import { api, streamPost } from "./api.js";
 import { desktop, dirname, relativeTo } from "./desktop.js";
 import { checkRelease, DEFAULT_RELEASE_REPO } from "./updates.js";
 import { claimStarterTitle, packChats, renameSharedChapters, sessionTitle, shareCrewTitles, tidyChapters, unpackChats } from "./sessions.js";
 
-const AppContext = createContext(null);
+export { useApp } from "./appContext.js";
 
 if (localStorage.getItem("flint-theme") === "light") {
   document.documentElement.dataset.theme = "light";
@@ -1589,6 +1590,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     function flush() {
+      if (!readyRef.current) return;
       const body = JSON.stringify(packChats(booksRef.current, chatsRef.current));
       fetch("/api/chats", {
         method: "PUT",
@@ -1721,10 +1723,4 @@ export function AppProvider({ children }) {
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useApp() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used inside AppProvider");
-  return ctx;
 }
