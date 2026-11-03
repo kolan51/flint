@@ -32,8 +32,6 @@ Flint is the window around that model. A chat, an editor, and a small crew of ag
   </a>
 </p>
 
-The [site](https://kolan51.github.io/flint/) has the installers at the top. The window under them is the app: agents on the left, the file in the middle, the chat on the right, and the diff under the editor.
-
 <p align="center">
   <img src="site/images/studio.png" width="920" alt="The current Flint window: agents, the file, the crew, and the diff.">
 </p>

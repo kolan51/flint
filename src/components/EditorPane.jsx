@@ -3,6 +3,7 @@ import Editor, { loader } from "@monaco-editor/react";
 import { useApp } from "../store.jsx";
 import { faceOf, resolveAgent } from "../faces.js";
 import { api } from "../api.js";
+import { publishEditorProblems } from "../editorProblems.js";
 import { desktop } from "../desktop.js";
 import StudioDock from "./StudioDock.jsx";
 import { Splitter } from "../panes.jsx";
@@ -211,6 +212,38 @@ export default function EditorPane() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    const model = editorRef.current?.getModel();
+    if (!monaco || !model || !activePath) {
+      publishEditorProblems([]);
+      return undefined;
+    }
+    let stop = false;
+    function pull() {
+      if (stop) return;
+      const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+      publishEditorProblems(markers
+        .filter((item) => item.severity >= monaco.MarkerSeverity.Warning)
+        .slice(0, 40)
+        .map((item) => ({
+          path: String(activePath).replaceAll("\\", "/"),
+          line: item.startLineNumber,
+          column: item.startColumn,
+          message: item.message,
+          severity: item.severity === monaco.MarkerSeverity.Error ? "error" : "warning",
+          source: "Editor",
+        })));
+    }
+    pull();
+    const timer = setInterval(pull, 1000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+      publishEditorProblems([]);
+    };
+  }, [activePath, activeTab?.content, editorReady]);
 
   useEffect(() => {
     if (!activePath) return undefined;
@@ -500,7 +533,7 @@ export default function EditorPane() {
         <p className="ghost-note">
           {settings?.completion?.baseUrl && settings?.completion?.model
             ? "Ghost text is paused while a chat is running."
-            : "Ghost text uses the crew model, so it waits while a chat is running."}
+            : "Grey text uses names in this file. A coder model in Settings fills the rest, and it waits while a chat is running."}
         </p>
       )}
       {inline && activeTab && (
@@ -748,12 +781,20 @@ function registerLocalWords(monaco) {
   localWordsReady = true;
   const ts = monaco.languages.typescript;
   if (ts?.javascriptDefaults) {
-    ts.javascriptDefaults.setCompilerOptions({
+    const compiler = {
       allowJs: true,
       allowNonTsExtensions: true,
       target: ts.ScriptTarget.ESNext,
-    });
-    ts.javascriptDefaults.setDiagnosticsOptions({ noSemanticValidation: false, noSyntaxValidation: false });
+      jsx: ts.JsxEmit.React,
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+    };
+    ts.javascriptDefaults.setCompilerOptions(compiler);
+    const diagnostics = { noSemanticValidation: false, noSyntaxValidation: false };
+    ts.javascriptDefaults.setDiagnosticsOptions(diagnostics);
+    if (ts.typescriptDefaults) {
+      ts.typescriptDefaults.setCompilerOptions({ ...compiler, checkJs: false });
+      ts.typescriptDefaults.setDiagnosticsOptions(diagnostics);
+    }
   }
   for (const language of ["go", "rust", "java", "markdown", "plaintext", "css", "html"]) {
     monaco.languages.registerCompletionItemProvider(language, {

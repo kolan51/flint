@@ -34,6 +34,11 @@ export default function SettingsModal() {
   const [searchForm, setSearchForm] = useState(settings?.search || { provider: "duckduckgo", braveKey: "" });
   const [searchSaved, setSearchSaved] = useState(false);
   const [mcpForm, setMcpForm] = useState({ name: "", command: "", args: "" });
+  const [coder, setCoder] = useState({
+    baseUrl: settings?.completion?.baseUrl || "",
+    model: settings?.completion?.model || "",
+  });
+  const [checkCommand, setCheckCommand] = useState(settings?.check?.command || "");
   const providers = Object.values(settings?.providers || {});
 
   async function saveSearch(event) {
@@ -317,21 +322,61 @@ export default function SettingsModal() {
         </form>
 
         <div className="search-setup">
-          <h3>Autocomplete</h3>
-          <p className="dir-label">Grey text finishes a word from names already in the file. It runs here, and it does not call a model.</p>
+          <h3>Tab</h3>
+          <p className="dir-label">Grey text at the cursor uses a small coder model. The chat model stays out of this. Names already in the file still complete when this is empty.</p>
           <label className="check-line">
             <input
               type="checkbox"
               checked={settings?.completion?.enabled !== false}
-              onChange={(event) => persistSettings({ ...settings, completion: { enabled: event.target.checked } })}
+              onChange={(event) => persistSettings({
+                ...settings,
+                completion: { ...settings.completion, enabled: event.target.checked },
+              })}
             />
             Autocomplete
+          </label>
+          <label>
+            Coder address
+            <input
+              value={coder.baseUrl}
+              onChange={(event) => setCoder({ ...coder, baseUrl: event.target.value })}
+              onBlur={() => persistSettings({
+                ...settings,
+                completion: { ...settings.completion, baseUrl: coder.baseUrl.trim(), model: coder.model.trim() },
+              })}
+              placeholder="http://127.0.0.1:8080"
+            />
+          </label>
+          <label>
+            Coder model
+            <input
+              value={coder.model}
+              onChange={(event) => setCoder({ ...coder, model: event.target.value })}
+              onBlur={() => persistSettings({
+                ...settings,
+                completion: { ...settings.completion, baseUrl: coder.baseUrl.trim(), model: coder.model.trim() },
+              })}
+              placeholder="qwen2.5-coder"
+            />
           </label>
         </div>
 
         <form className="search-setup" onSubmit={(event) => event.preventDefault()}>
           <h3>Commands</h3>
           <p className="dir-label">When an agent wants to run a command in this folder.</p>
+          <label>
+            After a job
+            <input
+              value={checkCommand}
+              onChange={(event) => setCheckCommand(event.target.value)}
+              onBlur={() => persistSettings({
+                ...settings,
+                check: { command: checkCommand.trim(), root: settings.workspace || "" },
+              })}
+              placeholder="npm test"
+            />
+          </label>
+          <p className="dir-label">Runs in this folder after an edit. A failure goes back to the same agent, once.</p>
           <label>
             Approval
             <FieldSelect

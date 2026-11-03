@@ -1,9 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
-
 const SKIP = new Set(["node_modules", ".git", "dist", "release", "build", "out", "coverage", ".next", "site"]);
-const CODE = new Set([".js", ".mjs", ".cjs", ".json"]);
+const CODE = new Set([".js", ".mjs", ".cjs", ".json", ".ts", ".mts", ".cts"]);
 const cache = new Map();
 
 export async function syntaxProblems(root) {
@@ -46,7 +45,7 @@ async function walk(root, rel, problems, budget) {
     } catch {
       continue;
     }
-    const found = ext === ".json" ? jsonError(text) : jsError(text);
+    const found = ext === ".json" ? jsonError(text) : ext === ".js" || ext === ".mjs" || ext === ".cjs" ? jsError(text) : await typescriptError(text);
     if (!found) continue;
     problems.push({
       path: next.replaceAll("\\", "/"),
@@ -54,7 +53,7 @@ async function walk(root, rel, problems, budget) {
       column: found.column,
       message: found.message,
       severity: "error",
-      source: ext === ".json" ? "JSON" : "JavaScript",
+      source: ext === ".json" ? "JSON" : ext === ".js" || ext === ".mjs" || ext === ".cjs" ? "JavaScript" : "TypeScript",
     });
   }
 }
@@ -68,6 +67,18 @@ function jsonError(text) {
     const index = at ? Number(at[1]) : 0;
     const line = text.slice(0, index).split("\n").length || 1;
     return { line, column: 1, message: String(err.message || "Invalid JSON").slice(0, 180) };
+  }
+}
+
+export async function typescriptError(text) {
+  const { stripTypeScriptTypes } = await import("node:module");
+  try {
+    stripTypeScriptTypes(String(text || ""));
+    return null;
+  } catch (err) {
+    const message = String(err.message || "Syntax error").split("\n")[0].slice(0, 180);
+    const at = message.match(/:(\d+)(?::(\d+))?/);
+    return { line: at ? Number(at[1]) : 1, column: at && at[2] ? Number(at[2]) : 1, message };
   }
 }
 

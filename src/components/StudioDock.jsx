@@ -4,6 +4,7 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useApp } from "../store.jsx";
 import { api } from "../api.js";
+import { readEditorProblems, subscribeEditorProblems } from "../editorProblems.js";
 import PanelIcon from "./PanelIcon.jsx";
 import FieldSelect from "./FieldSelect.jsx";
 
@@ -316,7 +317,7 @@ export default function StudioDock() {
   async function refreshProblems() {
     try {
       const data = await api.problems();
-      setProblems(data.problems || []);
+      setProblems(mergeProblems(data.problems || [], readEditorProblems()));
       setProblemNote(data.error || "");
     } catch {
       setProblems([]);
@@ -350,10 +351,16 @@ export default function StudioDock() {
   }, [dock]);
 
   useEffect(() => {
-    if (dock !== "problems") return undefined;
+    const stop = subscribeEditorProblems(() => {
+      if (dock === "problems") refreshProblems();
+    });
+    if (dock !== "problems") return stop;
     refreshProblems();
     const timer = setInterval(refreshProblems, 2500);
-    return () => clearInterval(timer);
+    return () => {
+      stop();
+      clearInterval(timer);
+    };
   }, [dock]);
 
   const [command, setCommand] = useState("");
@@ -496,8 +503,8 @@ export default function StudioDock() {
           problems.length === 0 ? (
             <p className="dock-note">
               {problemNote
-                ? `${problemNote} JavaScript and JSON are still checked for syntax.`
-                : "No problems. Python comes from Pyright. JavaScript and JSON are checked for syntax."}
+                ? `${problemNote} TypeScript, JavaScript, and JSON are still checked.`
+                : "No problems. Python comes from Pyright. TypeScript, JavaScript, and JSON are checked in the folder. An open script also uses the editor's TypeScript checker."}
             </p>
           ) : (
             <div className="hit-list">
@@ -607,4 +614,16 @@ export default function StudioDock() {
       </div>
     </section>
   );
+}
+
+function mergeProblems(folder, editor) {
+  const seen = new Set();
+  const out = [];
+  for (const item of [...folder, ...editor]) {
+    const key = `${item.path}:${item.line}:${item.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out.slice(0, 80);
 }

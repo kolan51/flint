@@ -16,6 +16,8 @@ import { getProvider, listModels, probeProvider, streamChat, completeText } from
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
 import { runTool, toolsFor } from "./tools.js";
 import { acceptPath, beginRun, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
+import { repoMap } from "./repomap.js";
+import { checkCommandFor } from "./check.js";
 import { ensureLsp, lspComplete, lspProblems, lspStatus, lspSync } from "./lsp.js";
 import { syntaxProblems } from "./syntax.js";
 import { runTests } from "./tests.js";
@@ -673,11 +675,9 @@ app.post("/api/complete", async (req, res) => {
     const agents = await loadAgents();
     const agent = agents.find((item) => item.id === req.body?.agentId) || agents[0];
     const dedicated = settings.completion?.baseUrl && settings.completion?.model;
-    const provider = dedicated
-      ? { kind: "openai", baseUrl: settings.completion.baseUrl, apiKey: "", name: "completion" }
-      : getProvider(settings, agent?.provider);
-    const model = dedicated ? settings.completion.model : (agent?.model || settings.defaultModel);
-    if (!model) return res.json({ text: "" });
+    if (!dedicated) return res.json({ text: "" });
+    const provider = { kind: "openai", baseUrl: settings.completion.baseUrl, apiKey: "", name: "completion" };
+    const model = settings.completion.model;
     const before = String(req.body?.before || "").slice(-600);
     const after = String(req.body?.after || "").slice(0, 240);
     if (dedicated) {
@@ -762,6 +762,7 @@ app.post("/api/chat", async (req, res) => {
     }
     const lastUser = [...viewed.messages].reverse().find((item) => item.role === "user");
     const memory = await recallMemory(workspace, lastUser?.content || "");
+    const map = await repoMap(workspace).catch(() => "");
     let mcp = { tools: [], map: new Map() };
     try {
       mcp = await listMcpTools(settings.mcp || []);
@@ -771,11 +772,11 @@ app.post("/api/chat", async (req, res) => {
     const run = beginRun(workspace);
     send(res, { type: "run", id: run.id });
     const history = [
-      { role: "system", content: systemFor(agent, agents, settings, { rules, mode, journal, memory, earlier: viewed.earlier, summary: folded.summary, messages: viewed.messages }) },
+      { role: "system", content: systemFor(agent, agents, settings, { rules, mode, journal, memory, map, earlier: viewed.earlier, summary: folded.summary, messages: viewed.messages }) },
       ...viewed.messages,
     ];
 
-    await runAgentLoop({
+    const convo = await runAgentLoop({
       settings,
       agents,
       agent,
@@ -793,6 +794,26 @@ app.post("/api/chat", async (req, res) => {
       signal: cancel.signal,
       emit: (event) => send(res, event),
     });
+    if (!cancel.signal.aborted && useTools) {
+      await settleCheck({
+        settings,
+        agents,
+        agent,
+        provider,
+        model: chosenModel,
+        temperature: agent?.temperature ?? 0.6,
+        messages: convo,
+        workspace,
+        tools: [...toolsFor(mode, true, agents.filter((item) => item.id !== agent?.id)), ...mcp.tools],
+        mcp,
+        allowPass: true,
+        mode,
+        run,
+        rules,
+        signal: cancel.signal,
+        emit: (event) => send(res, event),
+      });
+    }
     cancel.finish();
     if (!res.writableEnded) {
       send(res, { type: "done" });
@@ -883,8 +904,9 @@ Use web_search for documentation, error strings, and library APIs. Flint runs th
 Plan mode is on. Search and read, then answer with the plan. You cannot edit files or run commands.`;
   }
   return `${shared}
-Change code with edit_file and an exact span copied from the file. Use write_file only to create a file.
-Use run_command to run tests or the project, read the output, and fix failures.
+Change code with edit_file. Copy the span from the file. A unique span still matches if only the indentation or spacing differs. new may be a unified diff instead.
+Use write_file only to create a file.
+Use run_command to run tests or the project, read the output, and fix failures. If this folder has a check command, Flint runs it after an edit and sends a failure back to you.
 The user can reject a file change, one hunk, or undo the whole run. Commands wait until the user runs them.
 Use git_status and git_diff to see what changed. Do not commit unless the user asks.`;
 }
@@ -972,22 +994,24 @@ function systemFor(agent, agents, settings, extras = {}) {
   const others = agents.filter((item) => item.id !== agent?.id);
   const targets = delegationTargets(agent, agents, extras.messages || []);
   const roster = others.length
-    ? `You lead ${others.map((item) => item.name).join(", ")}. For a real job, call assign_work once and give each worker a different piece before you edit or run anything. They start together, so each task must stand on its own. You wait, then tell the user what each one did.
+    ? `You lead ${others.map((item) => item.name).join(", ")}. For a real job, call assign_work once before you edit or run anything. Give each worker one file. The files must not overlap. They start together, so each task must stand on its own. You wait, then tell the user what each one did.
 ${others.map((item) => `- ${item.name} (${whoLabel(settings, item) || "current model"})`).join("\n")}`
     : "You are the only agent right now.";
   const nudge = targets.length
-    ? `Split this job across ${targets.map((item) => item.name).join(", ")}. Call assign_work once. They run at the same time, so give each a different task that does not depend on the others. Do not edit or run anything until they have reported back.`
+    ? `Split this job across ${targets.map((item) => item.name).join(", ")}. Call assign_work once. Give each worker one file, and do not give two workers the same file. Do not edit or run anything until they have reported back.`
     : "";
   const journal = String(extras.journal || "").trim();
   const recent = journal ? `Recent work in this folder, shared by every agent:\n${journal}` : "";
   const memory = String(extras.memory || "").trim();
   const remembered = memory ? `Notes from earlier sessions in this project:\n${memory}` : "";
+  const mapped = String(extras.map || "").trim();
+  const names = mapped ? `Names in this folder. Search before you read a body:\n${mapped}` : "";
   const earlier = extras.summary
     ? `Earlier in this session, already compressed:\n${extras.summary}`
     : (extras.earlier
       ? `${extras.earlier} earlier messages in this session stay saved. This turn sees the recent part.`
       : "");
-  return [agent?.systemPrompt || "You are a local coding assistant.", rulesBlock(extras.rules || ""), instructions(extras.mode), remembered, recent, earlier, roster, nudge].filter(Boolean).join("\n\n");
+  return [agent?.systemPrompt || "You are a local coding assistant.", rulesBlock(extras.rules || ""), instructions(extras.mode), names, remembered, recent, earlier, roster, nudge].filter(Boolean).join("\n\n");
 }
 
 function findAgent(agents, query) {
@@ -1039,6 +1063,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
   const root = tree?.path || workspace;
   const localRules = tree ? await loadRules(root) : rules;
   const memory = await recallMemory(workspace, task);
+  const map = await repoMap(root).catch(() => "");
   const scratch = tree ? { id: run?.id || "", files: {}, edits: [] } : run;
   emit({ type: "task_status", taskId, agentId: target.id, replyMsgId, text: "Waiting for the model" });
   try {
@@ -1066,6 +1091,8 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
 ${rulesBlock(localRules || "")}
 
 ${instructions(mode)}
+
+${map ? `Names in this folder. Search before you read a body:\n${map}` : ""}
 
 ${memory ? `Notes from earlier sessions:\n${memory}` : ""}
 
@@ -1172,6 +1199,36 @@ function toolPath(call) {
   }
 }
 
+async function settleCheck(ctx) {
+  const command = checkCommandFor(ctx.settings, ctx.workspace);
+  if (ctx.mode === "plan" || !command || !ctx.run?.edits?.length) return;
+  let convo = ctx.messages || [];
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (ctx.signal?.aborted) return;
+    ctx.emit?.({ type: "status", agentId: ctx.agent?.id || "", text: "Running the folder check" });
+    ctx.emit?.({ type: "command_output", text: `\n$ ${command}\n` });
+    const result = await runCommand(ctx.workspace, command, 120000, (text) => {
+      ctx.emit?.({ type: "command_output", text });
+    });
+    if ((result.code ?? 1) === 0) {
+      ctx.emit?.({ type: "status", agentId: ctx.agent?.id || "", text: "Check passed" });
+      return;
+    }
+    const tail = result.output.length > 4000 ? result.output.slice(-4000) : result.output;
+    if (attempt === 1) {
+      ctx.emit?.({ type: "status", agentId: ctx.agent?.id || "", text: "Check still failing" });
+      return;
+    }
+    convo = await runAgentLoop({
+      ...ctx,
+      messages: [...convo, {
+        role: "user",
+        content: `The folder check failed. Fix the failure in the files you already changed.\n\n$ ${command}\nexit ${result.code ?? "?"}\n${tail}`,
+      }],
+    });
+  }
+}
+
 async function runAgentLoop({ settings, agents, agent, provider, model, temperature, messages, workspace, tools, allowPass, emit, mode = "act", run, rules, mcp, leaseTask, signal }) {
   const convo = [...messages];
   const handoff = new Set(delegationTargets(agent, agents, messages).map((item) => item.name.toLowerCase()));
@@ -1179,7 +1236,7 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
   let turns = 0;
 
   while (turns < 8) {
-    if (signal?.aborted) return;
+    if (signal?.aborted) return convo;
     turns += 1;
     let sawTools = false;
 
@@ -1191,13 +1248,13 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
       tools,
       signal,
     })) {
-      if (signal?.aborted) return;
+      if (signal?.aborted) return convo;
       if (event.type === "delta" || event.type === "think" || event.type === "stats") emit(event);
       if (event.type === "tool_calls") {
         sawTools = true;
         toolCalls = event.tool_calls;
       }
-      if (event.type === "done" && !sawTools) return;
+      if (event.type === "done" && !sawTools) return convo;
     }
 
     if (toolCalls) {
@@ -1208,7 +1265,7 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
         tool_calls: toolCalls,
       });
       for (const call of toolCalls) {
-          if (signal?.aborted) return;
+          if (signal?.aborted) return convo;
           let result;
           try {
             if (call.function.name === "assign_work") {
@@ -1230,7 +1287,7 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
                 }
                 return part;
               }));
-              if (signal?.aborted) return;
+              if (signal?.aborted) return convo;
               const parts = settled.map((item) => (
                 item.status === "fulfilled" ? item.value : `Tool error: ${item.reason?.message || "The worker failed."}`
               ));
@@ -1248,7 +1305,7 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
               }
             } else if (handoff.size && ["edit_file", "write_file", "run_command", "read_file", "search_code"].includes(call.function.name) && passed.size < handoff.size) {
               const waiting = [...handoff].filter((name) => !passed.has(name));
-              result = `Do not do this yourself. Call assign_work first for ${waiting.join(", ")}. A folder listing is enough. Give each one a different piece of the work.`;
+              result = `Do not do this yourself. Call assign_work first for ${waiting.join(", ")}. Give each worker one file. The files must not overlap.`;
             } else {
               const focus = toolPath(call);
               if (focus) emit({ type: "focus", path: focus, agentId: agent.id });
@@ -1290,8 +1347,9 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
         }
     }
 
-    if (!sawTools) return;
+    if (!sawTools) return convo;
   }
+  return convo;
 }
 
 async function collectText(provider, opts) {

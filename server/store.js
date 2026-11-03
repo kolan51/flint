@@ -47,6 +47,12 @@ export const defaultSettings = {
   },
   completion: {
     enabled: true,
+    baseUrl: "",
+    model: "",
+  },
+  check: {
+    command: "",
+    root: "",
   },
   crew: {
     baseUrl: "",
@@ -123,7 +129,19 @@ function normalizePair(raw) {
 
 function normalizeCompletion(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
-  return { enabled: source.enabled !== false };
+  return {
+    enabled: source.enabled !== false,
+    baseUrl: String(source.baseUrl || "").trim().replace(/\/$/, ""),
+    model: String(source.model || "").trim(),
+  };
+}
+
+function normalizeCheck(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  return {
+    command: String(source.command || "").trim().slice(0, 240),
+    root: String(source.root || "").trim(),
+  };
 }
 
 function normalizeSearch(raw) {
@@ -181,6 +199,7 @@ export async function loadSettings() {
     commands: normalizeCommands(saved.commands),
     updates: normalizeUpdates(saved.updates),
     completion: normalizeCompletion(saved.completion),
+    check: normalizeCheck(saved.check),
     crew: normalizePair(saved.crew),
     recent: normalizeRecent(saved.recent),
     mcp: normalizeMcp(saved.mcp),
@@ -201,6 +220,7 @@ export async function saveSettings(next) {
     commands: normalizeCommands(next.commands),
     updates: normalizeUpdates(next.updates),
     completion: normalizeCompletion(next.completion),
+    check: normalizeCheck(next.check),
     crew: normalizePair(next.crew),
     recent: normalizeRecent(next.recent),
     mcp: normalizeMcp(next.mcp),

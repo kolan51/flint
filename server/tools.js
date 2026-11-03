@@ -16,6 +16,7 @@ import {
 } from "./studio.js";
 import { searchIndex } from "./codeIndex.js";
 import { runHook } from "./hooks.js";
+import { applyUnifiedDiff, locateEdit } from "./editmatch.js";
 
 const listDir = {
   type: "function",
@@ -59,7 +60,7 @@ const editFile = {
   type: "function",
   function: {
     name: "edit_file",
-    description: "Replace one exact span in a file. Copy old from the file, including enough lines to match once. Do not use this to rewrite a whole file.",
+    description: "Replace one span in a file. Copy old from the file. A small whitespace difference still matches when it is unique. new may instead be a unified diff. Do not use this to rewrite a whole file.",
     parameters: {
       type: "object",
       properties: {
@@ -179,7 +180,7 @@ export function assignWorkTool(workers = []) {
     function: {
       name: "assign_work",
       description: workers.length
-        ? `Split this job across the workers and wait for each result. Call this once before you edit files or run commands. Available workers: ${list}. Give every worker a different piece.`
+        ? `Split this job across the workers and wait for each result. Call this once before you edit files or run commands. Available workers: ${list}. Give each worker one file. The files must not overlap.`
         : "No other workers are available.",
       parameters: {
         type: "object",
@@ -225,27 +226,6 @@ function flattenTree(nodes, prefix = "") {
   return lines;
 }
 
-function findSpan(current, old) {
-  const exact = tryLocate(current, old);
-  if (exact) return { text: current, ...exact };
-  if (current.includes("\r\n")) {
-    const crlf = old.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
-    const span = tryLocate(current, crlf);
-    if (span) return { text: current, ...span };
-  }
-  return null;
-}
-
-function tryLocate(text, old) {
-  if (!old) return null;
-  const at = text.indexOf(old);
-  if (at < 0) return null;
-  if (text.indexOf(old, at + old.length) >= 0) {
-    throw new Error("That span matched more than once. Include more surrounding lines.");
-  }
-  return { at, old };
-}
-
 export async function runTool(workspace, name, rawArgs, ctx = {}) {
   const args = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : rawArgs || {};
   if (ctx.mode === "plan" && WRITING.has(name)) {
@@ -285,15 +265,17 @@ export async function runTool(workspace, name, rawArgs, ctx = {}) {
     }
     const old = String(args.old ?? args.old_string ?? "");
     const next = String(args.new ?? args.new_string ?? "");
-    if (!old) throw new Error("old text is empty. Copy the span from the file.");
-    let span;
-    try {
-      span = findSpan(current, old);
-    } catch (err) {
-      throw err;
+    if (!old && !looksLikeDiff(next)) throw new Error("old text is empty. Copy the span from the file, or send a unified diff as new.");
+    const patched = looksLikeDiff(next) ? applyUnifiedDiff(current, next) : null;
+    let span = null;
+    if (patched == null && old) span = locateEdit(current, old);
+    const recovered = patched != null ? patched : (span ? null : applyUnifiedDiff(current, old));
+    if (patched == null && !span && recovered == null) {
+      throw new Error("That span was not in the file. Read it and copy the lines, or send a unified diff as new.");
     }
-    if (!span) throw new Error("That span was not in the file. Read it and copy the exact text.");
-    const updated = span.text.slice(0, span.at) + next + span.text.slice(span.at + span.old.length);
+    const updated = span
+      ? span.text.slice(0, span.at) + next + span.text.slice(span.at + span.old.length)
+      : recovered;
     const saved = await saveEdit(workspace, ctx, rel, updated);
     return { content: `Edited ${saved.path} (${saved.bytes} bytes)`, edit: saved.edit, changed: saved.path };
   }
@@ -363,6 +345,10 @@ export async function runTool(workspace, name, rawArgs, ctx = {}) {
   }
   if (name.startsWith("mcp_") && ctx.mcpCall) return ctx.mcpCall(name, args);
   throw new Error(`Unknown tool: ${name}`);
+}
+
+function looksLikeDiff(text) {
+  return /^@@\s+-\d+/m.test(String(text || "")) || /^\s*@@\s+-\d+/m.test(String(text || ""));
 }
 
 async function saveEdit(workspace, ctx, rel, content) {

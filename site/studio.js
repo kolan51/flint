@@ -493,8 +493,8 @@ if (walkRoot) {
     {
       title: "Open Flint",
       label: "Open",
-      text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. The window is the app. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
-      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.7</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
+      text: "Run the installer, then open Flint from the Start menu, Applications, or your app launcher. From a checkout, run <code>npm install</code> and then <code>npm run desktop</code>.",
+      frame: `<div class="boot-in"><div class="mark"><img src="boot-icon.png" alt=""><div class="name"><b>Flint</b><small>0.1.8</small></div><div class="boot-track"><i></i></div><span>Starting</span></div></div>`,
       boot: true,
     },
     {
@@ -535,7 +535,7 @@ if (walkRoot) {
       title: "Open a folder",
       label: "Folder",
       keys: "<span><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>O</kbd> Open folder</span><span><kbd>Ctrl</kbd><kbd>O</kbd> Open files</span>",
-      text: "Use the folder icon, or drag a project onto the window. The file list on the left is that folder. Flint reads and edits only inside it.",
+      text: "Use the folder icon, or drag a project onto the window. Flint reads and edits only inside that folder.",
       frame: `${bar("Qwen3 8B", "")}
         <div class="fbody">
           <aside class="fside">
@@ -585,7 +585,7 @@ if (walkRoot) {
       title: "Send the job",
       label: "Send",
       keys: "<span><kbd>Enter</kbd> Send</span><span><kbd>Ctrl</kbd><kbd>K</kbd> Commands</span><span><kbd>Ctrl</kbd><kbd>I</kbd> Edit the selection</span>",
-      text: "Chat is the right-hand column. Agent mode can edit files and run commands. Plan mode can only read. A command waits until you press Run, Allow this, or Allow always. Stop ends the turn.",
+      text: "Agent mode can edit files and run commands. Plan mode can only read. A command waits until you press Run, Allow this, or Allow always. Stop ends the turn.",
       frame: `${bar("Qwen3 8B", "")}
         <div class="fbody">
           <aside class="fside">

@@ -4,6 +4,12 @@ import { parseStreamLine } from "./providers.js";
 import { commandAllowed, commandMatches } from "./commands.js";
 import { nearBottom } from "../src/scroll.js";
 import { parseTestOutput } from "./tests.js";
+import { applyUnifiedDiff, locateEdit } from "./editmatch.js";
+import { checkCommandFor } from "./check.js";
+import { typescriptError } from "./syntax.js";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 test("colon keepalive is not JSON", () => {
   assert.equal(parseStreamLine(":"), null);
@@ -52,6 +58,45 @@ test("a lead splits a real job and keeps a short question", async () => {
   assert.deepEqual(job.map((item) => item.name), ["Worker1", "Worker2", "Worker3"]);
   const quiet = delegationTargets(agents[0], agents, [{ role: "user", content: "what time is it" }]);
   assert.equal(quiet.length, 0);
+});
+
+test("a sloppy span still lands when it is unique", () => {
+  const file = "def divide(a, b):\n    if b == 0:\n        raise ZeroDivisionError\n    return a / b\n";
+  const exact = locateEdit(file, "    if b == 0:\n        raise ZeroDivisionError");
+  assert.equal(file.slice(exact.at, exact.at + exact.old.length), "    if b == 0:\n        raise ZeroDivisionError");
+  const loose = locateEdit(file, "if b == 0:\n    raise ZeroDivisionError");
+  assert.equal(file.slice(loose.at, loose.at + loose.old.length), "    if b == 0:\n        raise ZeroDivisionError");
+  assert.throws(() => locateEdit(`${file}${file}`, "def divide(a, b):"), /more than once/);
+});
+
+test("a unified diff applies when the span does not", () => {
+  const file = "def divide(a, b):\n    return a / b\n";
+  const diff = "@@ -1,2 +1,3 @@\n def divide(a, b):\n+    if b == 0:\n+        raise ZeroDivisionError\n     return a / b\n";
+  assert.equal(applyUnifiedDiff(file, diff), "def divide(a, b):\n    if b == 0:\n        raise ZeroDivisionError\n    return a / b\n");
+  assert.equal(applyUnifiedDiff(file, "not a diff"), null);
+});
+
+test("the folder check stays with the folder it was saved for", () => {
+  assert.equal(checkCommandFor({ check: { command: "npm test", root: "F:/app" } }, "F:/app"), "npm test");
+  assert.equal(checkCommandFor({ check: { command: "npm test", root: "F:/app" } }, "F:/other"), "");
+  assert.equal(checkCommandFor({ check: { command: "  ", root: "F:/app" } }, "F:/app"), "");
+});
+
+test("typescript syntax is reported and valid code is quiet", async () => {
+  assert.equal(await typescriptError("export function add(a: number, b: number) { return a + b }\n"), null);
+  const bad = await typescriptError("export function add(a: number { return a }\n");
+  assert.equal(bad.line >= 1, true);
+  assert.match(bad.message, /Expected/);
+});
+
+test("the repo map keeps function names and drops the body", async () => {
+  const { repoMap } = await import("./repomap.js");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-map-"));
+  await fs.writeFile(path.join(dir, "calc.py"), "def divide(a, b):\n    return a / b\n");
+  const map = await repoMap(dir);
+  assert.match(map, /calc\.py/);
+  assert.match(map, /divide\(a, b\)/);
+  assert.equal(map.includes("return a / b"), false);
 });
 
 test("test failures keep the file and the line", () => {
