@@ -62,6 +62,7 @@ export function AppProvider({ children }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const booksRef = useRef({});
   const chatsRef = useRef({});
+  const chatSaveTimer = useRef(null);
   const tabsRef = useRef([]);
   const workspaceRef = useRef("");
   const readyRef = useRef(false);
@@ -519,6 +520,13 @@ export function AppProvider({ children }) {
     }
   }
 
+  function scheduleChatSave() {
+    clearTimeout(chatSaveTimer.current);
+    chatSaveTimer.current = setTimeout(() => {
+      persistChats(chatsRef.current).catch(() => {});
+    }, 600);
+  }
+
   function ensureBook(agentId, messages = []) {
     const books = booksRef.current;
     if (books[agentId]?.items?.length) return books[agentId];
@@ -812,7 +820,7 @@ export function AppProvider({ children }) {
   async function sendChat(text, images = [], options = {}) {
     if ((!text.trim() && !images.length) || !settings) return;
     const agentId = activeAgentId;
-    const history = chats[agentId] || [];
+    const history = chatsRef.current[agentId] || chats[agentId] || [];
     const includeOpen = options.includeOpen !== false;
     const attached = await mentionContext(text, includeOpen ? activeTab?.path : "");
     const context = [
@@ -833,7 +841,14 @@ export function AppProvider({ children }) {
     const userMessage = { id: uid("u"), role: "user", content: text, images };
     const assistant = { id: uid("a"), role: "assistant", content: "", thinking: "", status: "", handoffs: [] };
     const nextHistory = [...history, userMessage, assistant];
-    setChats((prev) => ({ ...prev, [agentId]: nextHistory }));
+    const seeded = { ...chatsRef.current, [agentId]: nextHistory };
+    chatsRef.current = seeded;
+    setChats(seeded);
+    try {
+      await persistChats(seeded);
+    } catch {
+      /* the reply still runs; the next save writes this turn */
+    }
     setBusy("chat");
     setBusyAgent(agents.find((item) => item.id === agentId)?.name || "Agent");
     setActivity(Object.fromEntries(agents.map((agent) => [agent.id, agent.id === agentId ? "Thinking" : "Waiting"])));
@@ -857,6 +872,7 @@ export function AppProvider({ children }) {
         covered: booksRef.current[agentId]?.items?.find((item) => item.id === booksRef.current[agentId]?.active)?.covered || 0,
       }, (event) => {
         watchActivity(agentId, event);
+        scheduleChatSave();
         if (event.type === "summary" && event.summary) {
           const current = booksRef.current[agentId];
           if (current) {
@@ -1138,9 +1154,11 @@ export function AppProvider({ children }) {
       }, 1200);
     } catch (err) {
       const stopped = err.name === "AbortError";
+      clearTimeout(chatSaveTimer.current);
+      let snapshot = null;
       setChats((prev) => {
         const base = stopped ? stopOpenWork(prev) : prev;
-        return {
+        snapshot = {
           ...base,
           [agentId]: (base[agentId] || []).map((m) =>
             m.id === assistant.id
@@ -1148,7 +1166,9 @@ export function AppProvider({ children }) {
               : m
           ),
         };
+        return snapshot;
       });
+      if (snapshot) persistChats(snapshot).catch(() => {});
     } finally {
       if (chatAbort.current === ctrl) chatAbort.current = null;
       setActivity({});
@@ -1566,6 +1586,20 @@ export function AppProvider({ children }) {
     }, 400);
     return () => clearTimeout(handle);
   }, [workspaceRoot, tabKey]);
+
+  useEffect(() => {
+    function flush() {
+      const body = JSON.stringify(packChats(booksRef.current, chatsRef.current));
+      fetch("/api/chats", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    }
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
 
   useEffect(() => {
     boot();

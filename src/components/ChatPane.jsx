@@ -14,6 +14,29 @@ function flattenFiles(nodes, into = []) {
   return into;
 }
 
+function readDraft(agentId) {
+  try {
+    const all = JSON.parse(localStorage.getItem("flint-drafts") || "{}");
+    return String(all?.[agentId] || "");
+  } catch {
+    return "";
+  }
+}
+
+function writeDraft(agentId, value) {
+  if (!agentId) return;
+  let all = {};
+  try {
+    all = JSON.parse(localStorage.getItem("flint-drafts") || "{}") || {};
+  } catch {
+    all = {};
+  }
+  const text = String(value || "");
+  if (text) all[agentId] = text.slice(0, 8000);
+  else delete all[agentId];
+  localStorage.setItem("flint-drafts", JSON.stringify(all));
+}
+
 const COMMANDS = [
   { id: "search", label: "Search the folder", args: true },
   { id: "diff", label: "Review edits", args: false },
@@ -83,6 +106,10 @@ export default function ChatPane() {
   const sessionMenu = useRef(null);
   const [sessionSlot, setSessionSlot] = useState(null);
   const [text, setText] = useState("");
+  const textRef = useRef("");
+  const draftAgent = useRef("");
+  const holdDraft = useRef(false);
+  textRef.current = text;
   const [mention, setMention] = useState(null);
   const [images, setImages] = useState([]);
   const [withFile, setWithFile] = useState(true);
@@ -162,6 +189,26 @@ export default function ChatPane() {
   useEffect(() => {
     setWithFile(true);
   }, [activeTab?.path]);
+
+  useEffect(() => {
+    const next = activeAgent?.id || "";
+    const prev = draftAgent.current;
+    if (prev && prev !== next) writeDraft(prev, textRef.current);
+    if (prev !== next) holdDraft.current = true;
+    draftAgent.current = next;
+    if (next && prev !== next) setText(readDraft(next));
+  }, [activeAgent?.id]);
+
+  useEffect(() => {
+    if (holdDraft.current) {
+      holdDraft.current = false;
+      return undefined;
+    }
+    const id = draftAgent.current;
+    if (!id || id !== activeAgent?.id) return undefined;
+    const handle = setTimeout(() => writeDraft(id, text), 250);
+    return () => clearTimeout(handle);
+  }, [text, activeAgent?.id]);
 
   useEffect(() => {
     function onKey(event) {

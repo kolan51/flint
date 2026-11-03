@@ -195,16 +195,19 @@ function ReviewNote({ item, onSend }) {
           onChange={setHunk}
         />
       )}
-      <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Comment on this change" aria-label="Review comment" />
-      <button className="btn" type="submit">Send to agent</button>
+      <div className="review-send">
+        <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Ask for a change" aria-label="Review comment" />
+        <button className="btn" type="submit">Send</button>
+      </div>
     </form>
   );
 }
 
-function changeLine(item) {
-  const patch = item.hunks?.[0]?.patch || item.patch || "";
-  const line = String(patch).split("\n").find((row) => row.startsWith("+") || row.startsWith("-"));
-  return line ? line.slice(0, 140) : "Marked on the lines in the editor";
+function hunkPreview(hunk) {
+  const lines = String(hunk?.patch || "").split("\n").filter((row) => row.startsWith("+") || row.startsWith("-"));
+  const line = lines.find((row) => row.slice(1).trim()) || lines[0] || "";
+  if (!line) return { kind: "", text: "Marked in the editor" };
+  return { kind: line.startsWith("+") ? "add" : "del", text: line.slice(1).trim() || line };
 }
 
 function checkoutClaims(checkouts, agents, activity) {
@@ -459,20 +462,33 @@ export default function StudioDock() {
             reviews.map((item) => (
               <article className="diff-card" key={`${item.runId}-${item.path}`}>
                 <header>
-                  <b>{item.path}</b>
-                  {item.agent && <span style={{ color: item.color || "var(--amber)" }}>{item.agent}</span>}
-                  <span>{item.status === "open" ? "Open" : item.status === "accepted" ? "Kept" : "Restored"}</span>
-                  {item.status === "open" && (
+                  <button type="button" className="diff-file" title={item.path} onClick={() => openFileAt(item.path, item.hunks?.[0]?.line || 1)}>
+                    <b>{item.path.split(/[/\\]/).pop()}</b>
+                    {item.agent && <em style={{ color: item.color || "var(--amber)" }}>{item.agent}</em>}
+                  </button>
+                  {item.status === "open" ? (
                     <span className="diff-actions">
                       <button type="button" className="ghost" onClick={() => rejectEdit(item)}>Reject</button>
                       <button type="button" className="btn" onClick={() => acceptEdit(item)}>Accept</button>
                     </span>
+                  ) : (
+                    <span>{item.status === "accepted" ? "Kept" : "Restored"}</span>
                   )}
                 </header>
-                <button type="button" className="hit" onClick={() => openFileAt(item.path, item.hunks?.[0]?.line || 1)}>
-                  <b>{item.path}{item.hunks?.[0]?.line ? `:${item.hunks[0].line}` : ""}</b>
-                  <span>{changeLine(item)}</span>
-                </button>
+                {item.status === "open" && item.hunks?.length > 0 && (
+                  <div className="hunks">
+                    {item.hunks.map((hunk) => {
+                      const preview = hunkPreview(hunk);
+                      return (
+                        <div key={hunk.index} className="hunk">
+                          <button type="button" className="hunk-line" onClick={() => openFileAt(item.path, hunk.line || 1)}>{hunk.line || hunk.index + 1}</button>
+                          <code className={`hunk-preview ${preview.kind}`}>{preview.text}</code>
+                          <button type="button" className="ghost" onClick={() => rejectHunk(item, hunk.index)}>Drop</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {item.status === "open" && (
                   <ReviewNote
                     item={item}
@@ -483,16 +499,6 @@ export default function StudioDock() {
                       await sendChat(`Review note on ${item.path}${hunk ? `, change ${hunk.index + 1}` : ""}:\n${note}\n\n\`\`\`diff\n${String(diff).slice(0, 4000)}\n\`\`\``);
                     }}
                   />
-                )}
-                {item.status === "open" && item.hunks?.length > 0 && (
-                  <div className="hunks">
-                    {item.hunks.map((hunk) => (
-                      <div key={hunk.index} className="hunk">
-                        <button type="button" className="ghost" onClick={() => openFileAt(item.path, hunk.line || 1)}>Line {hunk.line || hunk.index + 1}</button>
-                        <button type="button" className="ghost" onClick={() => rejectHunk(item, hunk.index)}>Drop</button>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </article>
             ))

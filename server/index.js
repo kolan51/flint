@@ -11,6 +11,7 @@ import {
   saveAgents,
   saveChats,
   saveSettings,
+  updateChats,
 } from "./store.js";
 import { getProvider, listModels, probeProvider, streamChat, completeText } from "./providers.js";
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
@@ -1159,11 +1160,10 @@ Reply with the result ${passedFrom.name} should show the user. Do not pass this 
     releaseTask(taskId);
   }
 
-  const chats = appendAgentMessages(await loadChats(), target.id, [
+  await updateChats((current) => appendAgentMessages(current, target.id, [
     { id: userMsgId, role: "user", content: task, passedFrom },
     { id: replyMsgId, role: "assistant", content: reply.trim(), thinking: thinking.trim(), stats: workerStats },
-  ]);
-  await saveChats(chats);
+  ]));
   sendEvent({ type: "task_done", taskId, agentId: target.id, replyMsgId, reply: reply.trim(), thinking: thinking.trim(), stats: workerStats, files: touched });
   return `${target.name} (${toModel || "model"}) finished the task you passed.\n\nResult:\n${reply.trim() || "(no reply)"}`;
 }

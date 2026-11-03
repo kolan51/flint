@@ -249,9 +249,21 @@ export async function loadChats() {
   return readJson(paths.chats, {});
 }
 
+let chatQueue = Promise.resolve();
+
+export function updateChats(mutator) {
+  const run = chatQueue.then(async () => {
+    const current = await loadChats();
+    const next = await mutator(current);
+    await writeJson(paths.chats, next);
+    return next;
+  });
+  chatQueue = run.then(() => {}, () => {});
+  return run;
+}
+
 export async function saveChats(chats) {
-  await writeJson(paths.chats, chats);
-  return chats;
+  return updateChats(() => chats);
 }
 
 export async function ensureWorkspace(workspace) {
