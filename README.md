@@ -76,6 +76,14 @@ Pick the name in Settings and Flint fills the address. A cloud one also needs it
 
 A local model and a cloud API can both sit in the list. Switch them from the title bar whenever you want a different one for the chat.
 
+## Models the edits were tried on
+
+One model has been used for real edit jobs. The diff still waits until you keep it. No other model has been scored, so this table stays at the run that happened.
+
+| Model | Quant | Connection | What happened |
+| --- | --- | --- | --- |
+| Qwen3.8 27B | Q4_K_M | llama.cpp | Used on a real folder. Diffs stayed in review until they were kept. |
+
 ## What you ask
 
 Fix the bug. Add the page. Explain this file. Rename it across the project.
