@@ -411,6 +411,22 @@ export default function SettingsModal() {
         </form>
 
         <div className="search-setup">
+          <h3>Prompt</h3>
+          <p className="dir-label">A short prompt sends this agent, the open file, and the map. The crew comes back when a job is split.</p>
+          <label className="check-line">
+            <input
+              type="checkbox"
+              checked={settings?.prompt?.compact === true}
+              onChange={(event) => persistSettings({
+                ...settings,
+                prompt: { compact: event.target.checked },
+              })}
+            />
+            Short prompt
+          </label>
+        </div>
+
+        <div className="search-setup">
           <h3>Updates</h3>
           <div className="update-line">
             <div className="update-copy">

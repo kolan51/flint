@@ -9,6 +9,11 @@ function shortModel(model) {
   return String(model || "").split(/[/\\]/).pop().replace(/\.gguf$/i, "");
 }
 
+function crewSeat(agent) {
+  if (agent?.role === "apply" || agent?.role === "lead" || agent?.role === "chat") return agent.role;
+  return /senior|main|lead|manager/i.test(String(agent?.name || "")) ? "lead" : "chat";
+}
+
 export default function AgentStudio() {
   const { agents, activeAgent, persistAgents, setModal, setActiveAgentId, settings, ask } = useApp();
   const [draft, setDraft] = useState(
@@ -100,6 +105,20 @@ export default function AgentStudio() {
           Name
           <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
         </label>
+        <label>
+          In the crew
+          <FieldSelect
+            ariaLabel="In the crew"
+            value={crewSeat(draft)}
+            options={[
+              { value: "chat", label: "Chat" },
+              { value: "apply", label: "Apply" },
+              { value: "lead", label: "Lead" },
+            ]}
+            onChange={(role) => setDraft({ ...draft, role })}
+          />
+          <span className="model-hint">Chat, Apply, and Lead are the only seats. A builder, reviewer, checker, or tester stays in the prompt below.</span>
+        </label>
         <div className="face-field">
           <span>Face</span>
           <div className="face-current">
@@ -174,6 +193,7 @@ export default function AgentStudio() {
         <label>
           Prompt
           <textarea className="field" value={draft.systemPrompt || ""} onChange={(e) => setDraft({ ...draft, systemPrompt: e.target.value })} />
+          <span className="model-hint">Start with the job, such as “You are the tester.” The crew uses that line when it splits work.</span>
         </label>
         <div className="row end">
           <button type="button" className="ghost" onClick={remove}>Delete</button>

@@ -15,7 +15,7 @@ import {
 } from "./store.js";
 import { getProvider, listModels, probeProvider, streamChat, completeText } from "./providers.js";
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
-import { runTool, toolsFor } from "./tools.js";
+import { agentJobLine, agentRole, runTool, toolsFor } from "./tools.js";
 import { acceptPath, beginRun, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
 import { repoMap } from "./repomap.js";
 import { checkCommandFor } from "./check.js";
@@ -543,7 +543,9 @@ app.post("/api/edits/reject", async (req, res) => {
 
 app.post("/api/edits/accept", async (req, res) => {
   try {
-    res.json(acceptPath(req.body?.runId, req.body?.path));
+    const settings = await loadSettings();
+    const root = await ensureWorkspace(settings.workspace);
+    res.json(await acceptPath(root, req.body?.runId, req.body?.path));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -770,7 +772,8 @@ app.post("/api/chat", async (req, res) => {
     } catch {
       mcp = { tools: [], map: new Map() };
     }
-    const run = beginRun(workspace);
+    const ask = [...(messages || [])].reverse().find((item) => item.role === "user");
+    const run = beginRun(workspace, ask?.content || "");
     send(res, { type: "run", id: run.id });
     const history = [
       { role: "system", content: systemFor(agent, agents, settings, { rules, mode, journal, memory, map, earlier: viewed.earlier, summary: folded.summary, messages: viewed.messages }) },
@@ -786,7 +789,7 @@ app.post("/api/chat", async (req, res) => {
       temperature: agent?.temperature ?? 0.6,
       messages: history,
       workspace,
-      tools: useTools ? [...toolsFor(mode, true, agents.filter((item) => item.id !== agent?.id)), ...mcp.tools] : undefined,
+      tools: useTools ? toolsOf(mode, agent, agents, { allowPass: true, mcp }) : undefined,
       mcp,
       allowPass: true,
       mode,
@@ -805,7 +808,7 @@ app.post("/api/chat", async (req, res) => {
         temperature: agent?.temperature ?? 0.6,
         messages: convo,
         workspace,
-        tools: [...toolsFor(mode, true, agents.filter((item) => item.id !== agent?.id)), ...mcp.tools],
+        tools: toolsOf(mode, agent, agents, { allowPass: true, mcp }),
         mcp,
         allowPass: true,
         mode,
@@ -909,7 +912,7 @@ Change code with edit_file. Copy the span from the file. A unique span still mat
 Use write_file only to create a file.
 Use run_command to run tests or the project, read the output, and fix failures. If this folder has a check command, Flint runs it after an edit and sends a failure back to you.
 The user can reject a file change, one hunk, or undo the whole run. Commands wait until the user runs them.
-Use git_status and git_diff to see what changed. Do not commit unless the user asks.`;
+Use git_status and git_diff to see what changed. Keeping a file commits that file. Do not run git commit yourself.`;
 }
 
 function rulesBlock(rules) {
@@ -964,8 +967,31 @@ async function foldSummary(provider, model, messages, summary, covered, signal) 
   }
 }
 
+function crewName(agent, settings) {
+  const job = agentJobLine(agent);
+  const model = whoLabel(settings, agent);
+  const same = !job || job.toLowerCase() === String(agent?.name || "").toLowerCase();
+  const who = same ? agent?.name || "Agent" : `${agent?.name || "Agent"}, ${job}`;
+  return model ? `${who} (${model})` : who;
+}
+
 function isLead(agent) {
-  return /senior|main|lead|manager/.test(String(agent?.name || "").toLowerCase());
+  return agentRole(agent) === "lead";
+}
+
+function shapeFor(agent, agents, worker = false) {
+  if (agentRole(agent) === "apply") return "apply";
+  if (worker) return "full";
+  if ((agents || []).some((item) => item.id !== agent?.id && agentRole(item) === "apply")) return "decide";
+  return "full";
+}
+
+function toolsOf(mode, agent, agents, { allowPass = false, mcp = null, worker = false } = {}) {
+  const shape = shapeFor(agent, agents, worker);
+  const others = (agents || []).filter((item) => item.id !== agent?.id);
+  const base = toolsFor(mode, allowPass && shape !== "apply", others, shape);
+  if (shape === "apply") return base;
+  return [...base, ...(mcp?.tools || [])];
 }
 
 function looksLikeJob(text) {
@@ -976,7 +1002,7 @@ function looksLikeJob(text) {
 export function delegationTargets(agent, agents, messages) {
   const last = [...messages].reverse().find((item) => item.role === "user");
   const text = String(last?.content || "");
-  const others = agents.filter((item) => item.id !== agent?.id);
+  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
   if (!others.length || !text.trim()) return [];
   const blob = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const named = others.filter((item) => blob.includes(item.name.toLowerCase().replace(/[^a-z0-9]+/g, "")));
@@ -991,16 +1017,24 @@ export function delegationTargets(agent, agents, messages) {
   return [];
 }
 
-function systemFor(agent, agents, settings, extras = {}) {
-  const others = agents.filter((item) => item.id !== agent?.id);
+export function systemFor(agent, agents, settings, extras = {}) {
+  const role = agentRole(agent);
+  const compact = settings?.prompt?.compact === true;
+  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
+  const appliers = agents.filter((item) => item.id !== agent?.id && agentRole(item) === "apply");
   const targets = delegationTargets(agent, agents, extras.messages || []);
   const roster = others.length
     ? `You lead ${others.map((item) => item.name).join(", ")}. For a real job, call assign_work once before you edit or run anything. Give each worker one file. The files must not overlap. They start together, so each task must stand on its own. You wait, then tell the user what each one did.
-${others.map((item) => `- ${item.name} (${whoLabel(settings, item) || "current model"})`).join("\n")}`
-    : "You are the only agent right now.";
+${others.map((item) => `- ${crewName(item, settings)}`).join("\n")}`
+    : (appliers.length ? "" : "You are the only agent right now.");
   const nudge = targets.length
     ? `Split this job across ${targets.map((item) => item.name).join(", ")}. Call assign_work once. Give each worker one file, and do not give two workers the same file. Do not edit or run anything until they have reported back.`
     : "";
+  const roleLine = role === "apply"
+    ? "You apply one change. Read the file, then edit_file or write_file. Do not plan, do not delegate, and do not run commands."
+    : (appliers.length
+      ? `${appliers.map((item) => crewName(item, settings)).join(", ")} writes the diff. Hand that agent the file and the change with pass_task. Do not edit the file yourself.`
+      : "");
   const journal = String(extras.journal || "").trim();
   const recent = journal ? `Recent work in this folder, shared by every agent:\n${journal}` : "";
   const memory = String(extras.memory || "").trim();
@@ -1012,13 +1046,56 @@ ${others.map((item) => `- ${item.name} (${whoLabel(settings, item) || "current m
     : (extras.earlier
       ? `${extras.earlier} earlier messages in this session stay saved. This turn sees the recent part.`
       : "");
-  return [agent?.systemPrompt || "You are a local coding assistant.", rulesBlock(extras.rules || ""), instructions(extras.mode), names, remembered, recent, earlier, roster, nudge].filter(Boolean).join("\n\n");
+  const voice = agent?.systemPrompt || (role === "apply" ? "You apply a change to one file." : "You are a local coding assistant.");
+  if (role === "apply" || (compact && !targets.length)) {
+    return [voice, roleLine, names].filter(Boolean).join("\n\n");
+  }
+  if (compact) return [voice, roleLine, names, roster, nudge].filter(Boolean).join("\n\n");
+  return [voice, rulesBlock(extras.rules || ""), instructions(extras.mode), names, remembered, recent, earlier, roster, nudge, roleLine].filter(Boolean).join("\n\n");
 }
 
 function findAgent(agents, query) {
   const key = String(query || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   return agents.find((agent) => agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "") === key)
     || agents.find((agent) => agent.id.toLowerCase() === key);
+}
+
+function workerPrompt(target, extras) {
+  const names = extras.map ? `Names in this folder. Search before you read a body:\n${extras.map}` : "";
+  const handed = `A task was passed to you by ${extras.from?.name || "Agent"}${extras.fromModel ? ` (${extras.fromModel})` : ""}.`;
+  if (agentRole(target) === "apply") {
+    return [
+      target.systemPrompt || "You apply a change to one file.",
+      "You apply one change. Read the file, then edit_file or write_file. Do not plan, do not delegate, and do not run commands.",
+      names,
+      handed,
+      "Reply with the path you changed.",
+    ].filter(Boolean).join("\n\n");
+  }
+  if (extras.compact) {
+    return [
+      target.systemPrompt || "You are a coding agent.",
+      names,
+      handed,
+      extras.tree ? "You have your own checkout. Finish the task here. Your file changes are copied back when you are done." : "Do the task in the shared folder.",
+      `Reply with the result ${extras.from?.name || "the lead"} should show the user. Do not pass this task onward.`,
+    ].filter(Boolean).join("\n\n");
+  }
+  return `${target.systemPrompt || "You are a coding agent."}
+
+${rulesBlock(extras.rules || "")}
+
+${instructions(extras.mode)}
+
+${names}
+
+${extras.memory ? `Notes from earlier sessions:\n${extras.memory}` : ""}
+
+${extras.journal ? `Recent work in this folder:\n${extras.journal}` : ""}
+
+${handed}
+${extras.tree ? "You have your own checkout. Finish the task here. Your file changes are copied back when you are done." : "Do the task in the shared folder."}
+Reply with the result ${extras.from?.name || "the lead"} should show the user. Do not pass this task onward.`;
 }
 
 async function passTask({ settings, agents, from, args, workspace, emit, mode, run, rules, mcp, signal }) {
@@ -1076,7 +1153,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
     model,
     temperature: target.temperature ?? 0.6,
     workspace: root,
-    tools: [...toolsFor(mode, false), ...(mcp?.tools || [])],
+    tools: toolsOf(mode, target, agents, { allowPass: false, mcp, worker: true }),
     allowPass: false,
     mode,
     run: scratch,
@@ -1087,21 +1164,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
     messages: [
       {
         role: "system",
-        content: `${target.systemPrompt || "You are a coding agent."}
-
-${rulesBlock(localRules || "")}
-
-${instructions(mode)}
-
-${map ? `Names in this folder. Search before you read a body:\n${map}` : ""}
-
-${memory ? `Notes from earlier sessions:\n${memory}` : ""}
-
-${journalText(workspace) ? `Recent work in this folder:\n${journalText(workspace)}` : ""}
-
-A task was passed to you by ${passedFrom.name}${fromModel ? ` (${fromModel})` : ""}.
-${tree ? "You have your own checkout. Finish the task here. Your file changes are copied back when you are done." : "Do the task in the shared folder."}
-Reply with the result ${passedFrom.name} should show the user. Do not pass this task onward.`,
+        content: workerPrompt(target, { rules: localRules, mode, map, memory, journal: journalText(workspace), from: passedFrom, fromModel, tree, compact: settings?.prompt?.compact === true }),
       },
       { role: "user", content: task },
     ],
@@ -1218,6 +1281,28 @@ async function settleCheck(ctx) {
     if (attempt === 1) {
       ctx.emit?.({ type: "status", agentId: ctx.agent?.id || "", text: "Check still failing" });
       return;
+    }
+    const applier = (ctx.agents || []).find((item) => item.id !== ctx.agent?.id && agentRole(item) === "apply");
+    if (applier && agentRole(ctx.agent) !== "apply") {
+      try {
+        await passTask({
+          settings: ctx.settings,
+          agents: ctx.agents,
+          from: ctx.agent,
+          args: { agent: applier.name, task: `The folder check failed. Fix the failure in the files already changed.\n\n$ ${command}\nexit ${result.code ?? "?"}\n${tail}` },
+          workspace: ctx.workspace,
+          emit: ctx.emit,
+          mode: ctx.mode,
+          run: ctx.run,
+          rules: ctx.rules,
+          mcp: ctx.mcp,
+          signal: ctx.signal,
+        });
+      } catch (err) {
+        if (err?.name === "AbortError" || ctx.signal?.aborted) return;
+        ctx.emit?.({ type: "status", agentId: ctx.agent?.id || "", text: err.message });
+      }
+      continue;
     }
     convo = await runAgentLoop({
       ...ctx,
@@ -1369,7 +1454,7 @@ app.post("/api/pass", async (req, res) => {
     const agents = await loadAgents();
     const from = agents.find((item) => item.id === req.body?.fromId) || agents[0];
     const workspace = await ensureWorkspace(settings.workspace);
-    const run = beginRun(workspace);
+    const run = beginRun(workspace, req.body?.task || "");
     send(res, { type: "run", id: run.id });
     const cancel = cancelOnDisconnect(req);
     await passTask({

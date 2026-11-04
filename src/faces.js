@@ -71,9 +71,10 @@ export function resolveAgent(agents, hint) {
 
 export function agentJob(agent) {
   const prompt = String(agent?.systemPrompt || "").replace(/\s+/g, " ").trim();
-  const role = prompt.match(/you are (?:[\w .'-]{0,32}?,\s*)?the ([a-z][a-z -]{1,36})/i);
+  const role = prompt.match(/you are (?:[\w .'-]{0,32}?,\s*)?(?:the|an?) ([a-z][a-z -]{1,36})/i);
   if (!role) return "";
   const job = role[1].replace(/\.$/, "").trim();
+  if (/^coding agent\b/i.test(job)) return "";
   return job.charAt(0).toUpperCase() + job.slice(1);
 }
 

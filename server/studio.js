@@ -59,10 +59,11 @@ function scheduleSave() {
   }, 200);
 }
 
-export function beginRun(root) {
+export function beginRun(root, request = "") {
   const run = {
     id: `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
     root: root ? path.resolve(root) : "",
+    request: String(request || "").trim() ? commitMessage(request) : "",
     files: {},
     edits: [],
   };
@@ -205,11 +206,40 @@ export async function rejectPath(root, runId, rel) {
   return { path: key, created: snap.created };
 }
 
-export function acceptPath(runId, rel) {
+export function commitMessage(request) {
+  const raw = String(request || "").split(/\n\s*\n/)[0].split("[Open file:")[0];
+  const line = raw.replace(/\s+/g, " ").trim();
+  if (!line) return "Keep the diff";
+  return line.slice(0, 72);
+}
+
+export async function commitKeptPath(cwd, rel, message) {
+  const status = await gitStatus(cwd);
+  if (!status.repo) return { committed: false, reason: "This folder is not a git repository." };
+  const key = String(rel || "").replaceAll("\\", "/").replace(/^\.\//, "");
+  if (!key || key.split("/").includes("..")) return { committed: false, reason: "That path cannot be committed." };
+  const added = await gitRun(cwd, ["add", "--", key]);
+  if (added.code) return { committed: false, reason: added.output };
+  const staged = await gitRun(cwd, ["diff", "--cached", "--quiet", "--", key]);
+  if (staged.code === 0) return { committed: false, reason: "Nothing new to commit in that file." };
+  const committed = await gitRun(cwd, ["commit", "-m", commitMessage(message), "--only", "--", key]);
+  if (committed.code) return { committed: false, reason: committed.output };
+  return { committed: true, output: committed.output };
+}
+
+export async function acceptPath(root, runId, rel) {
   const run = runs.get(runId);
   const key = String(rel || "").replaceAll("\\", "/");
   if (run?.files[key]) run.files[key].accepted = true;
-  return { path: key };
+  let kept = { committed: false };
+  if (root && key) {
+    try {
+      kept = await commitKeptPath(root, key, run?.request || "");
+    } catch (err) {
+      kept = { committed: false, reason: err.message };
+    }
+  }
+  return { path: key, ...kept };
 }
 
 export async function undoRun(root, id) {

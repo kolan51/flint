@@ -126,7 +126,10 @@ function ShellPane({ commands, decideCommand, setCommandMode, settings, termLog 
       </div>
       {commands.filter((item) => item.status === "waiting").slice(0, 1).map((item) => (
         <div className="cmd-wait" key={item.id}>
-          <code>{item.command}</code>
+          <div className="cmd-ask">
+            {item.cwd ? <span className="cmd-cwd">{item.cwd}</span> : null}
+            <code>{item.command}</code>
+          </div>
           <span className="cmd-actions">
             <button type="button" className="btn" onClick={() => decideCommand(item.id, true)}>Run</button>
             <button type="button" className="ghost" onClick={() => decideCommand(item.id, true, false, true)}>Allow this</button>

@@ -952,6 +952,7 @@ function CommandCards({ message, pending, onDecide }) {
   if (!cards.length) return null;
   return cards.map((item) => (
     <div className="cmd-card" key={item.id}>
+      {item.cwd ? <span className="cmd-cwd">{item.cwd}</span> : null}
       <code>{item.command}</code>
       {item.status === "waiting" ? (
         <span className="cmd-actions">

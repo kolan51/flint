@@ -41,6 +41,9 @@ export const defaultSettings = {
     mode: "ask",
     allow: [],
   },
+  prompt: {
+    compact: false,
+  },
   updates: {
     check: true,
     repo: "kolan51/flint",
@@ -101,6 +104,10 @@ function normalizeMcp(raw) {
       command: String(item.command),
       args: String(item.args || ""),
     }));
+}
+
+function normalizePrompt(raw) {
+  return { compact: raw?.compact === true };
 }
 
 function normalizeCommands(raw) {
@@ -197,6 +204,7 @@ export async function loadSettings() {
     followMe: { ...defaultSettings.followMe, ...(saved.followMe || {}) },
     search: normalizeSearch(saved.search),
     commands: normalizeCommands(saved.commands),
+    prompt: normalizePrompt(saved.prompt),
     updates: normalizeUpdates(saved.updates),
     completion: normalizeCompletion(saved.completion),
     check: normalizeCheck(saved.check),
@@ -218,6 +226,7 @@ export async function saveSettings(next) {
     followMe: { ...defaultSettings.followMe, ...(next.followMe || {}) },
     search: normalizeSearch(next.search),
     commands: normalizeCommands(next.commands),
+    prompt: normalizePrompt(next.prompt),
     updates: normalizeUpdates(next.updates),
     completion: normalizeCompletion(next.completion),
     check: normalizeCheck(next.check),

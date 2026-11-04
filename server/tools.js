@@ -168,9 +168,13 @@ const passTask = {
   },
 };
 
-function workerRole(agent) {
+export function agentJobLine(agent) {
   const line = String(agent?.systemPrompt || "").split("\n").find((row) => row.trim()) || agent?.name || "worker";
   return line.replace(/^You are\s+/i, "").replace(/\.$/, "").slice(0, 90);
+}
+
+function workerRole(agent) {
+  return agentJobLine(agent);
 }
 
 export function assignWorkTool(workers = []) {
@@ -206,10 +210,20 @@ export function assignWorkTool(workers = []) {
 
 const reading = [listDir, readFileTool, searchCode, webSearchTool, webFetchTool, gitStatusTool, gitDiffTool];
 const writing = [editFile, writeFileTool, runCommandTool];
+const applying = [listDir, readFileTool, searchCode, editFile, writeFileTool];
 
-export function toolsFor(mode, allowPass, workers = []) {
-  const pass = allowPass ? [passTask, assignWorkTool(workers)] : [];
+export function agentRole(agent) {
+  const role = String(agent?.role || "").toLowerCase();
+  if (role === "apply" || role === "lead" || role === "chat") return role;
+  return /senior|main|lead|manager/.test(String(agent?.name || "").toLowerCase()) ? "lead" : "chat";
+}
+
+export function toolsFor(mode, allowPass, workers = [], shape = "full") {
+  if (shape === "apply") return applying;
+  const crew = (workers || []).filter((agent) => agentRole(agent) !== "apply");
+  const pass = allowPass ? [passTask, assignWorkTool(crew)] : [];
   if (mode === "plan") return [...reading, ...pass];
+  if (shape === "decide") return [...reading, runCommandTool, ...pass];
   return [...reading, ...writing, ...pass];
 }
 
@@ -296,6 +310,7 @@ export async function runTool(workspace, name, rawArgs, ctx = {}) {
           type: "command",
           id: pending.id,
           command,
+          cwd: workspace,
           status: "waiting",
           agentId: ctx.agent?.id || "",
           agent: ctx.agent?.name || "",

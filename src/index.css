@@ -1722,6 +1722,16 @@ img, svg { -webkit-user-drag: none; }
   border: 1px solid var(--line);
   border-radius: 12px;
 }
+.cmd-cwd {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cmd-card code {
   display: block;
   font-family: var(--mono);
@@ -2238,8 +2248,9 @@ input[type="checkbox"] {
 .shot img, .shots.sent img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; display: block; }
 .shots.sent { justify-content: flex-end; }
 .pass-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.cmd-wait { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.cmd-wait code { flex: 1; min-width: 120px; font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd-wait { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.cmd-ask { flex: 1; min-width: 0; }
+.cmd-wait code { display: block; font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmd-actions { display: flex; gap: 6px; margin-left: auto; flex: none; }
 .hunk { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
 .hunk + .hunk { border-top: 1px solid var(--line); }

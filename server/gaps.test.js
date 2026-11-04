@@ -37,6 +37,13 @@ test("a saved command is allowed and a different one is not", () => {
   assert.equal(commandAllowed("python -m unittest test_smoke", ["python -m unittest test_smoke"]), true);
 });
 
+test("a job in the prompt stays the job", async () => {
+  const { agentJob } = await import("../src/faces.js");
+  assert.equal(agentJob({ systemPrompt: "You are the tester. You try the change." }), "Tester");
+  assert.equal(agentJob({ systemPrompt: "You are Worker 2, the reviewer. You look for bugs." }), "Reviewer");
+  assert.equal(agentJob({ systemPrompt: "You are a coding agent on the user's machine." }), "");
+});
+
 test("chat stays pinned only near the bottom", () => {
   assert.equal(nearBottom(1000, 960, 40), true);
   assert.equal(nearBottom(1000, 920, 40), true);
@@ -52,6 +59,75 @@ test("an old thread becomes a session and a later note stays beside it", async (
   assert.equal(again.active.agent[0].content, "fix the calculator");
   assert.equal(again.active.agent.at(-1).content, "second");
   assert.equal(again.books.agent.items.length, 1);
+});
+
+test("an apply agent is not given a slice of the job", async () => {
+  process.env.FLINT_NO_LISTEN = "1";
+  const { delegationTargets, systemFor } = await import("./index.js");
+  const agents = [
+    { id: "agent", name: "Senior", role: "lead" },
+    { id: "w1", name: "Worker1", role: "chat" },
+    { id: "patch", name: "Patch", role: "apply" },
+  ];
+  const job = delegationTargets(agents[0], agents, [{ role: "user", content: "fix the missing divide bug in the calculator" }]);
+  assert.deepEqual(job.map((item) => item.name), ["Worker1"]);
+  const quiet = systemFor(agents[0], agents, { prompt: { compact: true } }, {
+    map: "divide()",
+    journal: "old notes",
+    rules: "always write tests",
+    messages: [{ role: "user", content: "what time is it" }],
+  });
+  assert.match(quiet, /divide\(\)/);
+  assert.doesNotMatch(quiet, /You lead/);
+  assert.doesNotMatch(quiet, /old notes/);
+  assert.match(quiet, /Patch writes the diff/);
+  const split = systemFor(agents[0], agents, { prompt: { compact: true } }, {
+    map: "divide()",
+    messages: [{ role: "user", content: "fix the missing divide bug in the calculator" }],
+  });
+  assert.match(split, /You lead Worker1/);
+  assert.match(split, /Patch writes the diff/);
+  const applying = systemFor(agents[2], agents, { prompt: { compact: false } }, { map: "divide()" });
+  assert.match(applying, /edit_file/);
+  assert.doesNotMatch(applying, /assign_work/);
+});
+
+test("a commit message stays on the request", async () => {
+  const { commitMessage } = await import("./studio.js");
+  assert.equal(commitMessage("Fix the divider\n\n[Open file: style.css]\n```css\nbody{}\n```"), "Fix the divider");
+  assert.equal(commitMessage(""), "Keep the diff");
+});
+
+test("keeping one file does not commit the rest of the folder", async () => {
+  const { commitKeptPath } = await import("./studio.js");
+  const { spawn } = await import("node:child_process");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-keep-"));
+  const git = (args) => new Promise((resolve, reject) => {
+    const child = spawn("git", args, { cwd: dir, windowsHide: true });
+    let out = "";
+    child.stdout?.on("data", (buf) => { out += buf.toString(); });
+    child.stderr?.on("data", (buf) => { out += buf.toString(); });
+    child.on("error", reject);
+    child.on("close", (code) => (code ? reject(new Error(out || `git ${args[0]} failed`)) : resolve(out)));
+  });
+  await git(["init"]);
+  await git(["config", "user.email", "flint@example.com"]);
+  await git(["config", "user.name", "Flint"]);
+  await fs.writeFile(path.join(dir, "a.txt"), "one\n");
+  await fs.writeFile(path.join(dir, "b.txt"), "two\n");
+  await git(["add", "--", "a.txt", "b.txt"]);
+  await git(["commit", "-m", "start"]);
+  await fs.writeFile(path.join(dir, "a.txt"), "one\nchanged\n");
+  await fs.writeFile(path.join(dir, "b.txt"), "two\nchanged\n");
+  const kept = await commitKeptPath(dir, "a.txt", "Fix the divider in the calculator");
+  assert.equal(kept.committed, true);
+  const status = await git(["status", "--short"]);
+  assert.match(status, /b\.txt/);
+  assert.doesNotMatch(status, /a\.txt/);
+  const log = await git(["log", "-1", "--format=%s"]);
+  assert.match(log, /Fix the divider/);
+  const missing = await commitKeptPath(path.join(dir, "not-a-repo"), "a.txt", "nope");
+  assert.equal(missing.committed, false);
 });
 
 test("a lead splits a real job and keeps a short question", async () => {

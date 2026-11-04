@@ -225,8 +225,13 @@ function agentSubtitle(agent, activity, tasks, faults, settings) {
   if (activity[agent.id] === "Failed") return faults[agent.id] || "Failed";
   const live = statusLine(activity[agent.id], tasks[agent.id]);
   if (live && live !== "Done" && live !== "Stopped") return live;
+  const job = agentJob(agent);
+  const seat = agent?.role === "apply" ? "Apply" : agent?.role === "lead" ? "Lead" : "";
+  if (job && seat) return `${job} · ${seat}`;
+  if (job) return job;
+  if (seat) return seat;
   if (!usesAppModel(agent, settings)) return shortModel(agent.model);
-  return agentJob(agent) || "Ready";
+  return "Ready";
 }
 
 export default function Sidebar() {

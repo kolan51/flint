@@ -488,6 +488,7 @@ export function AppProvider({ children }) {
       model: "",
       temperature: 0.6,
       followMe: true,
+      role: "chat",
       systemPrompt: "You are a coding agent on the user's machine. Be direct. Prefer working code. Use tools to read and write files in the workspace.",
     };
     await persistAgents([...agents, agent]);
@@ -1043,6 +1044,7 @@ export function AppProvider({ children }) {
           const card = {
             id: event.id,
             command: event.command,
+            cwd: event.cwd || "",
             status: "waiting",
             agentId: event.agentId || agentId,
           };
@@ -1249,10 +1251,12 @@ export function AppProvider({ children }) {
 
   async function acceptEdit(item) {
     try {
-      await api.acceptEdit(item.runId, item.path);
+      const result = await api.acceptEdit(item.runId, item.path);
       setReviews((prev) => prev.map((row) => (
         row.runId === item.runId && row.path === item.path ? { ...row, status: "accepted" } : row
       )));
+      if (result?.committed) setDockNote(`Committed ${item.path}`);
+      else if (result?.reason && !/not a git repository|Nothing new to commit/i.test(result.reason)) setDockNote(result.reason);
     } catch (err) {
       setDockNote(err.message);
     }
@@ -1471,7 +1475,7 @@ export function AppProvider({ children }) {
           setTermLog((prev) => `${prev}${event.text || ""}`.slice(-20000));
         }
         if (event.type === "command") {
-          setCommands((prev) => [...prev.filter((item) => item.id !== event.id), { id: event.id, command: event.command, status: "waiting" }]);
+          setCommands((prev) => [...prev.filter((item) => item.id !== event.id), { id: event.id, command: event.command, cwd: event.cwd || "", status: "waiting" }]);
           setDock("term");
         }
         if (event.type === "focus" || event.type === "edit" || event.type === "file_changed") {
