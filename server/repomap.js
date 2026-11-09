@@ -27,8 +27,22 @@ function signature(line) {
   return "";
 }
 
-async function walk(root, rel, out, budget) {
-  if (out.files >= 120 || out.chars >= 6000 || budget.visits >= 900) return;
+function wordsOf(query) {
+  return [...new Set(String(query || "").toLowerCase().match(/[a-z0-9_]{3,}/g) || [])];
+}
+
+function scoreOf(file, names, words) {
+  if (!words.length) return 0;
+  const hay = `${file}\n${names.join("\n")}`.toLowerCase();
+  let score = 0;
+  for (const word of words) {
+    if (hay.includes(word)) score += 1;
+  }
+  return score;
+}
+
+async function collect(root, rel, found, budget) {
+  if (budget.visits >= 900 || found.length >= 400) return;
   let entries = [];
   try {
     entries = await fs.readdir(path.join(root, rel), { withFileTypes: true });
@@ -37,12 +51,12 @@ async function walk(root, rel, out, budget) {
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
-    if (out.files >= 120 || out.chars >= 6000 || budget.visits >= 900) return;
+    if (budget.visits >= 900 || found.length >= 400) return;
     budget.visits += 1;
     if (SKIP.has(entry.name) || entry.name.startsWith(".")) continue;
     const next = rel ? `${rel}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      await walk(root, next, out, budget);
+      await collect(root, next, found, budget);
       continue;
     }
     if (!CODE.test(entry.name)) continue;
@@ -62,22 +76,36 @@ async function walk(root, rel, out, budget) {
       if (names.length >= 12) break;
     }
     if (!names.length) continue;
-    const block = `${next}\n${names.map((name) => `  ${name}`).join("\n")}\n`;
-    if (out.chars + block.length > 6000) return;
-    out.files += 1;
-    out.chars += block.length;
-    out.lines.push(block.trimEnd());
+    found.push({ path: next, names });
   }
 }
 
-export async function repoMap(root) {
+export async function repoMap(root, query = "") {
   const folder = path.resolve(root || "");
   if (!folder) return "";
-  const cached = caches.get(folder);
+  const key = `${folder}\n${String(query || "")}`;
+  const cached = caches.get(key);
   if (cached && Date.now() - cached.at < 20000) return cached.text;
-  const out = { files: 0, chars: 0, lines: [] };
-  await walk(folder, "", out, { visits: 0 });
-  const text = out.lines.join("\n");
-  caches.set(folder, { at: Date.now(), text });
+  const found = [];
+  await collect(folder, "", found, { visits: 0 });
+  const words = wordsOf(query);
+  found.sort((a, b) => {
+    const diff = scoreOf(b.path, b.names, words) - scoreOf(a.path, a.names, words);
+    if (diff) return diff;
+    return a.path.localeCompare(b.path);
+  });
+  const lines = [];
+  let chars = 0;
+  let files = 0;
+  for (const item of found) {
+    if (files >= 120) break;
+    const block = `${item.path}\n${item.names.map((name) => `  ${name}`).join("\n")}`;
+    if (chars + block.length + 1 > 6000) break;
+    lines.push(block);
+    chars += block.length + 1;
+    files += 1;
+  }
+  const text = lines.join("\n");
+  caches.set(key, { at: Date.now(), text });
   return text;
 }

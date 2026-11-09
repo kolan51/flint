@@ -513,7 +513,7 @@ export default function StudioDock() {
             <p className="dock-note">
               {problemNote
                 ? `${problemNote} TypeScript, JavaScript, and JSON are still checked.`
-                : "No problems. Python comes from Pyright. TypeScript, JavaScript, and JSON are checked in the folder. An open script also uses the editor's TypeScript checker."}
+                : "No problems. Python comes from Pyright. TypeScript and JavaScript come from the language server. JSON is checked in the folder. An open script also uses the editor's TypeScript checker."}
             </p>
           ) : (
             <div className="hit-list">

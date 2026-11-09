@@ -4,7 +4,7 @@ import { parseStreamLine, modelsEndpoint } from "./providers.js";
 import { commandAllowed, commandMatches } from "./commands.js";
 import { nearBottom } from "../src/scroll.js";
 import { parseTestOutput } from "./tests.js";
-import { applyUnifiedDiff, locateEdit } from "./editmatch.js";
+import { applyUnifiedDiff, locateEdit, replyDiffs } from "./editmatch.js";
 import { checkCommandFor } from "./check.js";
 import { typescriptError } from "./syntax.js";
 import fs from "node:fs/promises";
@@ -182,6 +182,57 @@ test("the repo map keeps function names and drops the body", async () => {
   assert.match(map, /calc\.py/);
   assert.match(map, /divide\(a, b\)/);
   assert.equal(map.includes("return a / b"), false);
+  await fs.rm(dir, { recursive: true, force: true });
+});
+
+test("the repo map ranks the file the request names", async () => {
+  const { repoMap } = await import("./repomap.js");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-rank-"));
+  await fs.writeFile(path.join(dir, "aaa.py"), "def unused(a, b):\n    return a\n");
+  await fs.writeFile(path.join(dir, "zebra.py"), "def divide(a, b):\n    return a / b\n");
+  const map = await repoMap(dir, "divide the numbers");
+  assert.ok(map.indexOf("zebra.py") < map.indexOf("aaa.py"));
+  await fs.rm(dir, { recursive: true, force: true });
+});
+
+test("a reply diff lands once when the hunk matches", async () => {
+  const { applyReplyText } = await import("./tools.js");
+  const { paths } = await import("./store.js");
+  const journal = path.join(paths.dataDir, "journal.json");
+  const runs = path.join(paths.dataDir, "runs.json");
+  const savedJournal = await fs.readFile(journal, "utf8").catch(() => null);
+  const savedRuns = await fs.readFile(runs, "utf8").catch(() => null);
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-reply-"));
+  const original = "def divide(a, b):\n    return a / b\n";
+  const diff = "```diff\n--- a/calc.py\n+++ b/calc.py\n@@ -1,2 +1,3 @@\n def divide(a, b):\n+    if b == 0:\n+        raise ZeroDivisionError\n     return a / b\n```";
+  try {
+    await fs.writeFile(path.join(dir, "calc.py"), original);
+    const run = { id: "run_test", files: {}, edits: [] };
+    const first = await applyReplyText(dir, diff, { run, agent: { id: "a", name: "Test" } });
+    assert.equal(first.length, 1);
+    const second = await applyReplyText(dir, diff, { run, agent: { id: "a", name: "Test" } });
+    assert.equal(second.length, 0);
+    const miss = "--- a/calc.py\n+++ b/calc.py\n@@ -1,2 +1,2 @@\n def missing():\n-    return 1\n+    return 2\n";
+    assert.equal((await applyReplyText(dir, miss, { run, agent: { id: "a", name: "Test" } })).length, 0);
+    assert.match(await fs.readFile(path.join(dir, "calc.py"), "utf8"), /ZeroDivisionError/);
+    assert.equal(replyDiffs(diff)[0].path, "calc.py");
+  } finally {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    if (savedJournal == null) await fs.rm(journal, { force: true });
+    else await fs.writeFile(journal, savedJournal);
+    if (savedRuns == null) await fs.rm(runs, { force: true });
+    else await fs.writeFile(runs, savedRuns);
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("script files use the typescript language server ids", async () => {
+  const { languageIdFor } = await import("./lsp.js");
+  assert.equal(languageIdFor("app.py"), "python");
+  assert.equal(languageIdFor("app.ts"), "typescript");
+  assert.equal(languageIdFor("app.tsx"), "typescriptreact");
+  assert.equal(languageIdFor("app.js"), "javascript");
+  assert.equal(languageIdFor("app.jsx"), "javascriptreact");
 });
 
 test("test failures keep the file and the line", () => {

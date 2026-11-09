@@ -69,6 +69,51 @@ export function locateEdit(current, old) {
   return loose;
 }
 
+function cleanDiffPath(raw) {
+  let rel = String(raw || "").trim().replace(/^["']|["']$/g, "").split("\t")[0].trim();
+  if (!rel || rel === "/dev/null") return "";
+  rel = rel.replace(/^[ab]\//, "").replaceAll("\\", "/").replace(/^\.\//, "");
+  if (!rel || rel.split("/").includes("..") || rel.startsWith("/") || /^[a-z]:/i.test(rel)) return "";
+  return rel;
+}
+
+export function replyDiffs(text) {
+  const body = String(text || "").replace(/\r\n/g, "\n").replace(/```(?:diff|patch)?\n?/gi, "").replace(/```/g, "");
+  const parts = [];
+  let current = null;
+  const flush = () => {
+    if (!current) return;
+    const file = cleanDiffPath(current.plus);
+    const created = current.minus === "/dev/null";
+    if (file && created) {
+      const content = current.hunks.filter((line) => line.startsWith("+") && !line.startsWith("+++")).map((line) => line.slice(1)).join("\n");
+      parts.push({ path: file, created: true, content: content && !content.endsWith("\n") ? `${content}\n` : content });
+    } else if (file && current.hunks.some((line) => line.startsWith("@@"))) {
+      parts.push({ path: file, created: false, patch: current.hunks.join("\n") });
+    }
+    current = null;
+  };
+  for (const line of body.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      flush();
+      continue;
+    }
+    if (line.startsWith("--- ")) {
+      flush();
+      current = { minus: line.slice(4).trim().split("\t")[0], plus: "", hunks: [] };
+      continue;
+    }
+    if (!current) continue;
+    if (line.startsWith("+++ ")) {
+      current.plus = line.slice(4).trim();
+      continue;
+    }
+    current.hunks.push(line);
+  }
+  flush();
+  return parts;
+}
+
 export function applyUnifiedDiff(current, patch) {
   const source = String(current || "");
   const raw = String(patch || "").replace(/\r\n/g, "\n").split("\n");

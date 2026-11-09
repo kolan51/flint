@@ -452,6 +452,7 @@ export default function EditorPane() {
 
   const lineHeight = Math.round(fontSize * 1.6);
   if (activeTab?.language === "python") activePythonPath = activePath;
+  if (activeTab?.language === "javascript" || activeTab?.language === "typescript") activeScriptPath = activePath;
   const showPreview = Boolean(activeTab) && previewOpen && (
     Boolean(liveUrl || projectUrl) || /\.(html?|md|svg)$/i.test(activeTab.path)
   );
@@ -560,7 +561,7 @@ export default function EditorPane() {
           onChange={(value) => {
             const next = value ?? "";
             updateTab(activePath, next);
-            if (activeTab.language === "python") {
+            if (activeTab.language === "python" || activeTab.language === "javascript" || activeTab.language === "typescript") {
               clearTimeout(lspTimer.current);
               lspTimer.current = setTimeout(() => {
                 api.lspSync({ path: pathRef.current, text: next }).catch(() => {});
@@ -774,6 +775,7 @@ function localGhost(model, position) {
 
 let localWordsReady = false;
 let activePythonPath = "";
+let activeScriptPath = "";
 const completeGate = { current: true };
 
 function registerLocalWords(monaco) {
@@ -824,52 +826,57 @@ function registerLocalWords(monaco) {
       },
     });
   }
-  monaco.languages.registerCompletionItemProvider("python", {
-    triggerCharacters: [".", "_"],
-    async provideCompletionItems(model, position) {
-      if (!completeGate.current) return { suggestions: [] };
-      const word = model.getWordUntilPosition(position);
-      const range = {
-        startLineNumber: position.lineNumber,
-        startColumn: word.startColumn,
-        endLineNumber: position.lineNumber,
-        endColumn: word.endColumn,
-      };
-      let items = [];
-      try {
-        const data = await api.lspComplete({
-          path: activePythonPath,
-          text: model.getValue(),
-          line: position.lineNumber,
-          column: position.column,
-        });
-        items = data.items || [];
-      } catch {
-        items = [];
-      }
-      if (!items.length) {
-        const words = new Set(String(model.getValue()).match(/[A-Za-z_][A-Za-z0-9_]{2,}/g) || []);
+  const completeFromServer = (language, pathOf) => {
+    monaco.languages.registerCompletionItemProvider(language, {
+      triggerCharacters: [".", "_"],
+      async provideCompletionItems(model, position) {
+        if (!completeGate.current) return { suggestions: [] };
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endLineNumber: position.lineNumber,
+          endColumn: word.endColumn,
+        };
+        let items = [];
+        try {
+          const data = await api.lspComplete({
+            path: pathOf(),
+            text: model.getValue(),
+            line: position.lineNumber,
+            column: position.column,
+          });
+          items = data.items || [];
+        } catch {
+          items = [];
+        }
+        if (!items.length) {
+          const words = new Set(String(model.getValue()).match(/[A-Za-z_][A-Za-z0-9_]{2,}/g) || []);
+          return {
+            suggestions: [...words].filter((item) => word.word && item.startsWith(word.word) && item !== word.word).slice(0, 24).map((item) => ({
+              label: item,
+              kind: monaco.languages.CompletionItemKind.Text,
+              insertText: item,
+              range,
+            })),
+          };
+        }
         return {
-          suggestions: [...words].filter((item) => word.word && item.startsWith(word.word) && item !== word.word).slice(0, 24).map((item) => ({
-            label: item,
-            kind: monaco.languages.CompletionItemKind.Text,
-            insertText: item,
+          suggestions: items.filter((item) => item.label).slice(0, 40).map((item) => ({
+            label: item.label,
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: item.insert || item.label,
+            detail: item.detail,
             range,
+            sortText: "0",
           })),
         };
-      }
-      return {
-        suggestions: items.filter((item) => item.label).slice(0, 40).map((item) => ({
-          label: item.label,
-          kind: monaco.languages.CompletionItemKind.Function,
-          insertText: item.insert || item.label,
-          detail: item.detail,
-          range,
-          sortText: "0",
-        })),
-      };
-    },
-  });
+      },
+    });
+  };
+  completeFromServer("python", () => activePythonPath);
+  completeFromServer("javascript", () => activeScriptPath);
+  completeFromServer("typescript", () => activeScriptPath);
 }
 
 function escapeHtml(text) {

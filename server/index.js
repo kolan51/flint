@@ -15,7 +15,7 @@ import {
 } from "./store.js";
 import { getProvider, listModels, probeProvider, streamChat, completeText } from "./providers.js";
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
-import { agentJobLine, agentRole, runTool, toolsFor } from "./tools.js";
+import { agentJobLine, agentRole, applyReplyText, runTool, toolsFor } from "./tools.js";
 import { acceptPath, beginRun, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
 import { repoMap } from "./repomap.js";
 import { checkCommandFor } from "./check.js";
@@ -765,7 +765,7 @@ app.post("/api/chat", async (req, res) => {
     }
     const lastUser = [...viewed.messages].reverse().find((item) => item.role === "user");
     const memory = await recallMemory(workspace, lastUser?.content || "");
-    const map = await repoMap(workspace).catch(() => "");
+    const map = await repoMap(workspace, lastUser?.content || "").catch(() => "");
     let mcp = { tools: [], map: new Map() };
     try {
       mcp = await listMcpTools(settings.mcp || []);
@@ -1141,7 +1141,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
   const root = tree?.path || workspace;
   const localRules = tree ? await loadRules(root) : rules;
   const memory = await recallMemory(workspace, task);
-  const map = await repoMap(root).catch(() => "");
+  const map = await repoMap(root, task).catch(() => "");
   const scratch = tree ? { id: run?.id || "", files: {}, edits: [] } : run;
   emit({ type: "task_status", taskId, agentId: target.id, replyMsgId, text: "Waiting for the model" });
   try {
@@ -1324,6 +1324,16 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
     if (signal?.aborted) return convo;
     turns += 1;
     let sawTools = false;
+    let reply = "";
+
+    const landReply = async () => {
+      if (mode !== "act") return;
+      const landed = await applyReplyText(workspace, reply, { mode, run, agent, emit, leaseTask }).catch(() => []);
+      for (const saved of landed) {
+        if (saved.edit) emit({ type: "edit", ...saved.edit, agentId: agent.id });
+        if (saved.path) emit({ type: "file_changed", path: saved.path, agentId: agent.id });
+      }
+    };
 
     let toolCalls = null;
     for await (const event of streamChat(provider, {
@@ -1334,12 +1344,16 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
       signal,
     })) {
       if (signal?.aborted) return convo;
+      if (event.type === "delta") reply += event.text || "";
       if (event.type === "delta" || event.type === "think" || event.type === "stats") emit(event);
       if (event.type === "tool_calls") {
         sawTools = true;
         toolCalls = event.tool_calls;
       }
-      if (event.type === "done" && !sawTools) return convo;
+      if (event.type === "done" && !sawTools) {
+        await landReply();
+        return convo;
+      }
     }
 
     if (toolCalls) {
@@ -1432,7 +1446,10 @@ async function runAgentLoop({ settings, agents, agent, provider, model, temperat
         }
     }
 
-    if (!sawTools) return convo;
+    if (!sawTools) {
+      await landReply();
+      return convo;
+    }
   }
   return convo;
 }

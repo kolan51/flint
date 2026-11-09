@@ -16,7 +16,7 @@ import {
 } from "./studio.js";
 import { searchIndex } from "./codeIndex.js";
 import { runHook } from "./hooks.js";
-import { applyUnifiedDiff, locateEdit } from "./editmatch.js";
+import { applyUnifiedDiff, locateEdit, replyDiffs } from "./editmatch.js";
 
 const listDir = {
   type: "function",
@@ -360,6 +360,34 @@ export async function runTool(workspace, name, rawArgs, ctx = {}) {
   }
   if (name.startsWith("mcp_") && ctx.mcpCall) return ctx.mcpCall(name, args);
   throw new Error(`Unknown tool: ${name}`);
+}
+
+export async function applyReplyText(workspace, text, ctx = {}) {
+  const landed = [];
+  const seen = new Set();
+  for (const part of replyDiffs(text)) {
+    if (!part.path || seen.has(part.path)) continue;
+    seen.add(part.path);
+    try {
+      let next = null;
+      if (part.created) {
+        next = part.content;
+      } else {
+        let current = "";
+        try {
+          current = await readFile(workspace, part.path);
+        } catch {
+          continue;
+        }
+        next = applyUnifiedDiff(current, part.patch);
+        if (next == null || next === current) continue;
+      }
+      landed.push(await saveEdit(workspace, ctx, part.path, next));
+    } catch {
+      /* a reply diff that does not match stays in the answer */
+    }
+  }
+  return landed;
 }
 
 function looksLikeDiff(text) {

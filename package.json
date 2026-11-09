@@ -27,7 +27,9 @@
     "express": "^4.21.2",
     "pyright": "^1.1.414",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "typescript-language-server": "^6.0.3"
   },
   "devDependencies": {
     "@fontsource/geist-mono": "^5.3.0",
@@ -54,7 +56,9 @@
       "server/**",
       "src/sessions.js",
       "package.json",
-      "node_modules/pyright/**"
+      "node_modules/pyright/**",
+      "node_modules/typescript/**",
+      "node_modules/typescript-language-server/**"
     ],
     "extraResources": [
       {
@@ -67,7 +71,9 @@
     ],
     "asarUnpack": [
       "dist/**",
-      "node_modules/pyright/**"
+      "node_modules/pyright/**",
+      "node_modules/typescript/**",
+      "node_modules/typescript-language-server/**"
     ],
     "win": {
       "target": "nsis",

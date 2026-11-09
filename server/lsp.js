@@ -3,20 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
-let child = null;
-let root = "";
-let buffer = Buffer.alloc(0);
-let nextId = 1;
-let ready = null;
-let booting = null;
-const pending = new Map();
-const diagnostics = new Map();
-const opened = new Set();
-let lastError = "";
+const here = path.dirname(fileURLToPath(import.meta.url));
 
-function serverPath() {
-  const name = path.join("node_modules", "pyright", "dist", "pyright-langserver.js");
-  const here = path.dirname(fileURLToPath(import.meta.url));
+function bundled(name) {
   const candidates = [
     path.resolve(name),
     path.resolve(here, "..", name),
@@ -25,35 +14,93 @@ function serverPath() {
   return candidates.find((file) => fs.existsSync(file)) || "";
 }
 
-function send(payload) {
-  if (!child?.stdin) return;
-  const body = JSON.stringify(payload);
-  child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+function pyrightPath() {
+  return bundled(path.join("node_modules", "pyright", "dist", "pyright-langserver.js"));
 }
 
-function request(method, params) {
-  const id = nextId;
-  nextId += 1;
-  send({ jsonrpc: "2.0", id, method, params });
+function scriptPath() {
+  return bundled(path.join("node_modules", "typescript-language-server", "lib", "cli.mjs"));
+}
+
+export function languageIdFor(rel) {
+  const ext = path.extname(String(rel || "")).toLowerCase();
+  if (ext === ".py") return "python";
+  if (ext === ".tsx") return "typescriptreact";
+  if (ext === ".ts") return "typescript";
+  if (ext === ".jsx") return "javascriptreact";
+  if (ext === ".js" || ext === ".mjs" || ext === ".cjs") return "javascript";
+  return "";
+}
+
+function session(label, source, scriptOf, configure) {
+  return {
+    label,
+    source,
+    scriptOf,
+    configure,
+    child: null,
+    root: "",
+    buffer: Buffer.alloc(0),
+    nextId: 1,
+    ready: null,
+    booting: null,
+    pending: new Map(),
+    diagnostics: new Map(),
+    opened: new Set(),
+    lastError: "",
+  };
+}
+
+const python = session("Pyright", "Pyright", pyrightPath, () => ({ analysis: { diagnosticMode: "openFilesOnly", typeCheckingMode: "basic" } }));
+const script = session("TypeScript", "TypeScript", scriptPath, () => null);
+
+function send(state, payload) {
+  if (!state.child?.stdin) return;
+  const body = JSON.stringify(payload);
+  state.child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+}
+
+function request(state, method, params) {
+  const id = state.nextId;
+  state.nextId += 1;
+  send(state, { jsonrpc: "2.0", id, method, params });
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
-      pending.delete(id);
+      state.pending.delete(id);
       resolve(null);
     }, 20000);
-    pending.set(id, (value) => {
+    state.pending.set(id, (value) => {
       clearTimeout(timer);
       resolve(value);
     });
   });
 }
 
-function notify(method, params) {
-  send({ jsonrpc: "2.0", method, params });
+function notify(state, method, params) {
+  send(state, { jsonrpc: "2.0", method, params });
 }
 
-function takeMessages() {
-  while (buffer.length) {
-    const text = buffer.toString("utf8");
+function uriToRel(state, uri) {
+  if (!state.root || !uri) return "";
+  let file = uri;
+  try {
+    file = decodeURIComponent(new URL(uri).pathname);
+  } catch {
+    return "";
+  }
+  if (process.platform === "win32" && file.startsWith("/")) file = file.slice(1);
+  const rel = path.relative(state.root, file).replaceAll("\\", "/");
+  if (!rel || rel.startsWith("..")) return "";
+  return rel;
+}
+
+function fileUri(state, rel) {
+  return pathToFileURL(path.join(state.root, rel)).href;
+}
+
+function takeMessages(state) {
+  while (state.buffer.length) {
+    const text = state.buffer.toString("utf8");
     const crlf = text.indexOf("\r\n\r\n");
     const lf = text.indexOf("\n\n");
     const split = crlf >= 0 && (lf < 0 || crlf <= lf) ? crlf : lf;
@@ -61,14 +108,14 @@ function takeMessages() {
     if (split < 0) return;
     const match = text.slice(0, split).match(/Content-Length:\s*(\d+)/i);
     if (!match) {
-      buffer = buffer.subarray(1);
+      state.buffer = state.buffer.subarray(1);
       continue;
     }
     const length = Number(match[1]);
     const head = Buffer.byteLength(text.slice(0, split + sep));
-    if (buffer.length < head + length) return;
-    const body = buffer.subarray(head, head + length).toString("utf8");
-    buffer = buffer.subarray(head + length);
+    if (state.buffer.length < head + length) return;
+    const body = state.buffer.subarray(head, head + length).toString("utf8");
+    state.buffer = state.buffer.subarray(head + length);
     let message;
     try {
       message = JSON.parse(body);
@@ -77,110 +124,66 @@ function takeMessages() {
     }
     if (message.id != null && message.method) {
       const result = message.method === "workspace/configuration"
-        ? (message.params?.items || []).map(() => ({ analysis: { diagnosticMode: "openFilesOnly", typeCheckingMode: "basic" } }))
+        ? (message.params?.items || []).map(() => state.configure())
         : null;
-      send({ jsonrpc: "2.0", id: message.id, result });
-    } else if (message.id != null && pending.has(message.id)) {
-      const done = pending.get(message.id);
-      pending.delete(message.id);
-      done(message.result);
+      send(state, { jsonrpc: "2.0", id: message.id, result });
+    } else if (message.id != null && state.pending.has(message.id)) {
+      const done = state.pending.get(message.id);
+      state.pending.delete(message.id);
+      done(message.result ?? message.error ?? null);
     }
     if (message.method === "textDocument/publishDiagnostics") {
-      const rel = uriToRel(message.params?.uri || "");
-      if (rel) diagnostics.set(rel, message.params?.diagnostics || []);
+      const rel = uriToRel(state, message.params?.uri || "");
+      if (rel) state.diagnostics.set(rel, message.params?.diagnostics || []);
     }
   }
 }
 
-function uriToRel(uri) {
-  if (!root || !uri) return "";
-  let file = uri;
-  try {
-    file = decodeURIComponent(new URL(uri).pathname);
-  } catch {
-    return "";
+function stopOne(state) {
+  if (state.child) state.child.kill();
+  state.child = null;
+  state.ready = null;
+  state.buffer = Buffer.alloc(0);
+  state.root = "";
+  state.opened.clear();
+  state.diagnostics.clear();
+  state.pending.clear();
+}
+
+function startOne(state, next) {
+  state.root = next;
+  const file = state.scriptOf();
+  if (!file) {
+    state.lastError = "";
+    return Promise.resolve();
   }
-  if (process.platform === "win32" && file.startsWith("/")) file = file.slice(1);
-  const rel = path.relative(root, file).replaceAll("\\", "/");
-  if (!rel || rel.startsWith("..")) return "";
-  return rel;
-}
-
-function fileUri(rel) {
-  return pathToFileURL(path.join(root, rel)).href;
-}
-
-export function lspStatus() {
-  return { ready: Boolean(child && ready), error: lastError, installed: Boolean(serverPath()) };
-}
-
-export function lspProblems() {
-  const problems = [];
-  for (const [file, items] of diagnostics) {
-    for (const item of items || []) {
-      problems.push({
-        path: file,
-        line: (item.range?.start?.line || 0) + 1,
-        column: (item.range?.start?.character || 0) + 1,
-        message: String(item.message || "").slice(0, 240),
-        severity: item.severity === 1 ? "error" : "warning",
-        source: "Pyright",
-      });
-    }
-  }
-  return problems.slice(0, 80);
-}
-
-export async function ensureLsp(folder) {
-  const next = path.resolve(folder || "");
-  if (!next) return lspStatus();
-  if (booting && root === next) return booting;
-  if (child && root === next) {
-    await ready;
-    return lspStatus();
-  }
-  stopLsp();
-  root = next;
-  diagnostics.clear();
-  booting = startServer(next).finally(() => {
-    booting = null;
-  });
-  return booting;
-}
-
-function startServer(next) {
-  const script = serverPath();
-  if (!script) {
-    lastError = "Pyright is not installed.";
-    return Promise.resolve(lspStatus());
-  }
-  lastError = "";
-  const proc = spawn(process.execPath, [script, "--stdio"], {
+  state.lastError = "";
+  const proc = spawn(process.execPath, [file, "--stdio"], {
     cwd: next,
     windowsHide: true,
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
   });
-  child = proc;
+  state.child = proc;
   let stderr = "";
   proc.stdout.on("data", (chunk) => {
-    buffer = Buffer.concat([buffer, chunk]);
-    takeMessages();
+    state.buffer = Buffer.concat([state.buffer, chunk]);
+    takeMessages(state);
   });
   proc.stderr?.on("data", (chunk) => {
     stderr = `${stderr}${chunk.toString()}`.slice(-400);
   });
   proc.stdin?.on("error", () => {});
   proc.on("error", (err) => {
-    lastError = err.message;
+    state.lastError = err.message;
   });
   proc.on("exit", (code) => {
-    if (!lastError && code) lastError = stderr.trim() || `Pyright stopped (${code}).`;
-    if (child === proc) {
-      child = null;
-      ready = null;
+    if (!state.lastError && code) state.lastError = stderr.trim() || `${state.label} stopped (${code}).`;
+    if (state.child === proc) {
+      state.child = null;
+      state.ready = null;
     }
   });
-  ready = request("initialize", {
+  const init = {
     processId: process.pid,
     rootUri: pathToFileURL(next).href,
     workspaceFolders: [{ uri: pathToFileURL(next).href, name: path.basename(next) }],
@@ -191,49 +194,112 @@ function startServer(next) {
         publishDiagnostics: { relatedInformation: false },
       },
     },
-    initializationOptions: {
-      python: { analysis: { diagnosticMode: "openFilesOnly", typeCheckingMode: "basic" } },
-    },
-  }).then(() => {
-    notify("initialized", {});
+  };
+  if (state === python) {
+    init.initializationOptions = { python: { analysis: { diagnosticMode: "openFilesOnly", typeCheckingMode: "basic" } } };
+  }
+  state.ready = request(state, "initialize", init).then(() => {
+    notify(state, "initialized", {});
   });
-  return ready.then(() => lspStatus());
+  return state.ready;
+}
+
+function statusOf() {
+  const running = Boolean((python.child && python.ready) || (script.child && script.ready));
+  return {
+    ready: running,
+    error: [python.lastError, script.lastError].filter(Boolean).join(" "),
+    installed: Boolean(pyrightPath() || scriptPath()),
+  };
+}
+
+export function lspStatus() {
+  return statusOf();
+}
+
+function problemsOf(state) {
+  const problems = [];
+  for (const [file, items] of state.diagnostics) {
+    for (const item of items || []) {
+      problems.push({
+        path: file,
+        line: (item.range?.start?.line || 0) + 1,
+        column: (item.range?.start?.character || 0) + 1,
+        message: String(item.message || "").slice(0, 240),
+        severity: item.severity === 1 ? "error" : "warning",
+        source: state.source,
+      });
+    }
+  }
+  return problems;
+}
+
+export function lspProblems() {
+  return [...problemsOf(python), ...problemsOf(script)].slice(0, 80);
+}
+
+function owner(rel) {
+  const id = languageIdFor(rel);
+  if (id === "python") return python;
+  if (id) return script;
+  return null;
+}
+
+export async function ensureLsp(folder) {
+  const next = path.resolve(folder || "");
+  if (!next) return statusOf();
+  const sameFolder = python.root === next && script.root === next;
+  const pythonUp = !pyrightPath() || python.child || python.booting;
+  const scriptUp = !scriptPath() || script.child || script.booting;
+  if (sameFolder && pythonUp && scriptUp) {
+    await Promise.all([python.booting, script.booting].filter(Boolean));
+    return statusOf();
+  }
+  stopLsp();
+  python.booting = startOne(python, next).finally(() => {
+    python.booting = null;
+  });
+  script.booting = startOne(script, next).finally(() => {
+    script.booting = null;
+  });
+  await Promise.all([python.booting, script.booting]);
+  return statusOf();
 }
 
 export function stopLsp() {
-  if (child) child.kill();
-  child = null;
-  ready = null;
-  buffer = Buffer.alloc(0);
-  root = "";
-  opened.clear();
-  diagnostics.clear();
+  stopOne(python);
+  stopOne(script);
 }
 
 export async function lspSync(folder, rel, text) {
+  const state = owner(rel);
+  if (!state) return;
   await ensureLsp(folder);
-  if (!child) return;
-  const uri = fileUri(rel);
+  if (!state.child) return;
+  const uri = fileUri(state, rel);
   const body = String(text || "");
-  if (opened.has(uri)) {
-    notify("textDocument/didChange", {
+  const languageId = languageIdFor(rel);
+  if (state.opened.has(uri)) {
+    notify(state, "textDocument/didChange", {
       textDocument: { uri, version: Date.now() },
       contentChanges: [{ text: body }],
     });
     return;
   }
-  opened.add(uri);
-  notify("textDocument/didOpen", {
-    textDocument: { uri, languageId: "python", version: 1, text: body },
+  state.opened.add(uri);
+  notify(state, "textDocument/didOpen", {
+    textDocument: { uri, languageId, version: 1, text: body },
   });
 }
 
 export async function lspComplete(folder, rel, text, line, character) {
+  const state = owner(rel);
+  if (!state) return [];
   await ensureLsp(folder);
-  if (!child) return [];
+  if (!state.child) return [];
   await lspSync(folder, rel, text);
-  const result = await request("textDocument/completion", {
-    textDocument: { uri: fileUri(rel) },
+  const result = await request(state, "textDocument/completion", {
+    textDocument: { uri: fileUri(state, rel) },
     position: { line: Math.max(0, Number(line) - 1), character: Math.max(0, Number(character) - 1) },
   });
   const items = Array.isArray(result) ? result : (result?.items || []);
