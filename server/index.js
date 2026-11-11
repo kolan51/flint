@@ -16,7 +16,7 @@ import {
 import { getProvider, listModels, probeProvider, streamChat, completeText } from "./providers.js";
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
 import { agentJobLine, agentRole, applyReplyText, runTool, toolsFor } from "./tools.js";
-import { acceptPath, beginRun, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
+import { acceptPath, beginRun, commitDelete, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
 import { repoMap } from "./repomap.js";
 import { checkCommandFor } from "./check.js";
 import { ensureLsp, lspComplete, lspProblems, lspStatus, lspSync } from "./lsp.js";
@@ -31,10 +31,22 @@ import { listSkills } from "./skills.js";
 import { closeWorktree, listWorktrees, openWorktree, publishWorktree } from "./worktrees.js";
 import { projectStatus, startPreview, startProject, stopProject } from "./preview.js";
 import { readProject, saveProject } from "./projects.js";
+import { allowBoot, apiToken, corsOptions, guardApi } from "./security.js";
+import {
+  approveTask,
+  createTask,
+  getTask,
+  listTasks,
+  proposeTask,
+  setTaskStatus,
+  updateTask,
+} from "./tasks.js";
+import { detectVerification, runVerification } from "./verify.js";
 
 const app = express();
-app.use(cors());
+app.use(cors(corsOptions()));
 app.use(express.json({ limit: "16mb" }));
+app.use(guardApi);
 
 function send(res, event) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -108,7 +120,14 @@ function watchWorkspace(root) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "local-bot" });
+  res.json({ ok: true, name: "Flint" });
+});
+
+app.get("/api/boot", (req, res) => {
+  if (!allowBoot(req)) {
+    return res.status(403).json({ error: "Boot token is only for the local Flint window." });
+  }
+  res.json({ ok: true, token: apiToken() });
 });
 
 app.get("/api/settings", async (_req, res) => {
@@ -653,8 +672,117 @@ app.get("/api/skills", async (_req, res) => {
   }
 });
 
-app.get("/api/tasks", (_req, res) => {
+app.get("/api/jobs", (_req, res) => {
   res.json({ jobs: listJobs() });
+});
+
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    res.json({ tasks: await listTasks(workspace), jobs: listJobs() });
+  } catch (err) {
+    res.status(400).json({ error: err.message, tasks: [], jobs: listJobs() });
+  }
+});
+
+app.get("/api/tasks/:id", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await getTask(workspace, req.params.id);
+    if (!task) return res.status(404).json({ error: "Task not found." });
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/propose", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const map = await repoMap(workspace, req.body?.request || "").catch(() => "");
+    const verification = await detectVerification(workspace);
+    const task = await proposeTask(workspace, {
+      request: req.body?.request || "",
+      map,
+      verification,
+      agentId: req.body?.agentId || "",
+      model: req.body?.model || "",
+    });
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await createTask(workspace, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/tasks/:id", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await updateTask(workspace, req.params.id, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/approve", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await approveTask(workspace, req.params.id);
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/status", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await setTaskStatus(workspace, req.params.id, req.body?.status, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/verify", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await getTask(workspace, req.params.id);
+    if (!task) return res.status(404).json({ error: "Task not found." });
+    await setTaskStatus(workspace, task.id, "verifying");
+    const report = await runVerification(workspace, {
+      checks: task.verification?.checks || [],
+      settings,
+      allowed: settings.commands?.mode === "allow",
+    });
+    const next = report.failed.length
+      ? "blocked"
+      : report.passed.length
+        ? "review"
+        : "blocked";
+    const updated = await setTaskStatus(workspace, task.id, next, { verificationReport: report });
+    res.json({ task: updated, report });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.post("/api/memory", async (req, res) => {
@@ -1202,7 +1330,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
     if (tree) {
       try {
         if (!signal?.aborted) {
-          const copied = await publishWorktree(workspace, tree, run, { name: target.name, color: target.color }, commitFile);
+          const copied = await publishWorktree(workspace, tree, run, { name: target.name, color: target.color }, commitFile, commitDelete);
           for (const saved of copied) {
             if (saved.conflict) {
               sendEvent({ type: "worktree", conflict: saved.path, agentId: target.id, agent: target.name, trees: listWorktrees() });
@@ -1516,8 +1644,9 @@ function mountUi() {
 
 export function startServer(port = Number(process.env.PORT || 8787)) {
   mountUi();
+  apiToken();
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, "127.0.0.1", () => {
+  const server = app.listen(port, "127.0.0.1", () => {
       const address = server.address();
       const actual = address && typeof address === "object" ? address.port : port;
       console.log(`Flint API on http://127.0.0.1:${actual}`);

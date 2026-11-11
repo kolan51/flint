@@ -3,7 +3,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useApp } from "../store.jsx";
-import { api } from "../api.js";
+import { api, streamUrl } from "../api.js";
 import { readEditorProblems, subscribeEditorProblems } from "../editorProblems.js";
 import PanelIcon from "./PanelIcon.jsx";
 import FieldSelect from "./FieldSelect.jsx";
@@ -22,7 +22,7 @@ function ShellPane({ commands, decideCommand, setCommandMode, settings, termLog 
 
   useEffect(() => {
     let gone = false;
-    const pull = () => api.tasks().then((data) => {
+    const pull = () => api.jobs().then((data) => {
       if (!gone) setJobs(data.jobs || []);
     }).catch(() => {});
     pull();
@@ -56,7 +56,7 @@ function ShellPane({ commands, decideCommand, setCommandMode, settings, termLog 
       setSession(data.id);
       setPty(Boolean(data.pty));
       setLog("");
-      source = new EventSource(`/api/terminal/stream?id=${encodeURIComponent(data.id)}`);
+      source = new EventSource(streamUrl(`/api/terminal/stream?id=${encodeURIComponent(data.id)}`));
       source.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
@@ -285,6 +285,7 @@ export default function StudioDock() {
     loadCheckouts,
     activity,
     agents,
+    activeAgentId,
   } = useApp();
   const [commitMessage, setCommitMessage] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -298,7 +299,21 @@ export default function StudioDock() {
   const [testing, setTesting] = useState(false);
   const [problems, setProblems] = useState([]);
   const [problemNote, setProblemNote] = useState("");
+  const [flintTasks, setFlintTasks] = useState([]);
+  const [taskDraft, setTaskDraft] = useState("");
+  const [taskNote, setTaskNote] = useState("");
+  const [taskBusy, setTaskBusy] = useState(false);
   const open = reviews.filter((item) => item.status === "open");
+
+  async function refreshFlintTasks() {
+    try {
+      const data = await api.tasks();
+      setFlintTasks(data.tasks || []);
+      setTaskNote("");
+    } catch (err) {
+      setTaskNote(err.message || "Tasks could not load.");
+    }
+  }
 
   async function refreshBranches() {
     try {
@@ -374,6 +389,7 @@ export default function StudioDock() {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
   const moreTabs = [
+    { id: "tasks", label: "Tasks" },
     { id: "problems", label: problems.length ? `Problems ${problems.length}` : "Problems" },
     { id: "search", label: "Search" },
     { id: "notes", label: "Notes" },
@@ -420,6 +436,7 @@ export default function StudioDock() {
                     setMoreOpen(false);
                     if (item.id === "problems") refreshProblems();
                     if (item.id === "notes") refreshNotes();
+                    if (item.id === "tasks") refreshFlintTasks();
                     setDock(item.id);
                   }}
                 >
@@ -507,6 +524,62 @@ export default function StudioDock() {
             ))
           )}
           </>
+        )}
+        {dock === "tasks" && (
+          <TaskPane
+            tasks={flintTasks}
+            draft={taskDraft}
+            note={taskNote}
+            busy={taskBusy}
+            onDraft={setTaskDraft}
+            onRefresh={refreshFlintTasks}
+            onPropose={async () => {
+              setTaskBusy(true);
+              try {
+                await api.proposeTask({ request: taskDraft, agentId: activeAgentId });
+                setTaskDraft("");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onApprove={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.approveTask(id);
+                await api.taskStatus(id, "implementing");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onVerify={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.verifyTask(id);
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onComplete={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.taskStatus(id, "completed");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+          />
         )}
         {dock === "problems" && (
           problems.length === 0 ? (
@@ -622,6 +695,63 @@ export default function StudioDock() {
         )}
       </div>
     </section>
+  );
+}
+
+function TaskPane({ tasks, draft, note, busy, onDraft, onRefresh, onPropose, onApprove, onVerify, onComplete }) {
+  return (
+    <>
+      <p className="dock-note">
+        Propose a Flint Task, approve it, verify with real commands, then complete it. Chat still handles small edits without a task.
+      </p>
+      <form
+        className="dock-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onPropose();
+        }}
+      >
+        <input
+          value={draft}
+          onChange={(event) => onDraft(event.target.value)}
+          placeholder="Add user authentication to my application"
+          aria-label="Task request"
+        />
+        <button className="btn" type="submit" disabled={busy || !draft.trim()}>Propose</button>
+        <button className="ghost" type="button" disabled={busy} onClick={onRefresh}>Refresh</button>
+      </form>
+      {note ? <p className="dock-note">{note}</p> : null}
+      <div className="hit-list">
+        {tasks.map((task) => {
+          const report = task.verificationReport;
+          return (
+            <article key={task.id} className="note-row" style={{ display: "grid", gap: 8, padding: "8px 0" }}>
+              <div className="hit" style={{ cursor: "default" }}>
+                <b>{task.title}</b>
+                <span>{task.status.replaceAll("_", " ")}{task.acceptance?.[0] ? ` · ${task.acceptance[0]}` : ""}</span>
+              </div>
+              {report ? (
+                <p className="dock-note">
+                  Verify: {report.passed?.length || 0} passed, {report.failed?.length || 0} failed, {report.skipped?.length || 0} skipped
+                  {report.unavailable?.length ? `, ${report.unavailable.length} unavailable` : ""}
+                </p>
+              ) : null}
+              <div className="dock-form">
+                {(task.status === "awaiting_approval" || task.status === "draft") && (
+                  <button type="button" className="btn" disabled={busy} onClick={() => onApprove(task.id)}>Approve</button>
+                )}
+                {(task.status === "implementing" || task.status === "blocked" || task.status === "approved") && (
+                  <button type="button" className="btn" disabled={busy} onClick={() => onVerify(task.id)}>Verify</button>
+                )}
+                {task.status === "review" && (
+                  <button type="button" className="btn" disabled={busy} onClick={() => onComplete(task.id)}>Complete</button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

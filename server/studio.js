@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { paths } from "./store.js";
-import { readFile, resolveSafe, writeFile } from "./workspace.js";
+import { deletePath, readFile, resolveSafe, writeFile } from "./workspace.js";
 
 const SKIP = new Set(["node_modules", ".git", "dist", "data", ".venv", "venv", "__pycache__", "build", "coverage"]);
 const TEXT = new Set([
@@ -178,19 +178,50 @@ export async function commitFile(root, run, rel, content, meta = {}) {
   const snap = run ? await remember(root, run, key) : { before: "", created: false };
   const written = await writeFile(root, key, content);
   const original = snap.created ? "" : (snap.before ?? "");
+  const text = Buffer.isBuffer(content) ? null : String(content);
   const edit = {
     id: `edit_${Math.random().toString(36).slice(2, 8)}`,
     runId: run?.id || "",
     path: written.path,
-    patch: unifiedDiff(original, content, written.path),
-    hunks: hunkTexts(original, content),
+    patch: text == null ? `(binary ${written.bytes} bytes)\n` : unifiedDiff(original, text, written.path),
+    hunks: text == null ? [`(binary ${written.bytes} bytes)`] : hunkTexts(original, text),
     created: Boolean(snap.created),
+    deleted: false,
+    binary: text == null,
     agent: meta.name || "",
     color: meta.color || "",
   };
   run?.edits.push(edit);
   scheduleSave();
   return { path: written.path, bytes: written.bytes, edit };
+}
+
+export async function commitDelete(root, run, rel, meta = {}) {
+  const key = String(rel || "").replaceAll("\\", "/");
+  const snap = run ? await remember(root, run, key) : { before: "", created: false };
+  let existed = true;
+  try {
+    await fs.access(resolveSafe(root, key));
+  } catch {
+    existed = false;
+  }
+  if (existed) await deletePath(root, key);
+  const original = snap.created ? "" : (snap.before ?? "");
+  const edit = {
+    id: `edit_${Math.random().toString(36).slice(2, 8)}`,
+    runId: run?.id || "",
+    path: key,
+    patch: unifiedDiff(original, "", key),
+    hunks: hunkTexts(original, ""),
+    created: false,
+    deleted: true,
+    binary: false,
+    agent: meta.name || "",
+    color: meta.color || "",
+  };
+  run?.edits.push(edit);
+  scheduleSave();
+  return { path: key, bytes: 0, edit, deleted: true };
 }
 
 export async function rejectPath(root, runId, rel) {

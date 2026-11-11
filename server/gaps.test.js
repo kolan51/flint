@@ -243,3 +243,153 @@ test("test failures keep the file and the line", () => {
   assert.equal(unit[0].path, "calculator.py");
   assert.equal(unit[0].line, 4);
 });
+
+test("the API guard blocks foreign hosts and missing tokens", async () => {
+  process.env.FLINT_API_TOKEN = "flint-test-token-aaaaaaaaaaaaaaaa";
+  const { allowBoot, apiToken, guardApi, isLocalHost, isLocalOrigin } = await import("./security.js");
+  assert.equal(isLocalHost("127.0.0.1:8787"), true);
+  assert.equal(isLocalHost("evil.example:8787"), false);
+  assert.equal(isLocalOrigin("http://127.0.0.1:5174"), true);
+  assert.equal(isLocalOrigin("https://evil.example"), false);
+  assert.equal(allowBoot({ headers: { host: "127.0.0.1:8787", origin: "https://evil.example" } }), false);
+  assert.equal(allowBoot({ headers: { host: "127.0.0.1:8787", "sec-fetch-site": "same-origin" } }), true);
+  assert.equal(apiToken(), "flint-test-token-aaaaaaaaaaaaaaaa");
+
+  const blocked = [];
+  const foreign = {
+    path: "/api/settings",
+    headers: { host: "127.0.0.1:8787", origin: "https://evil.example" },
+  };
+  await new Promise((resolve) => {
+    guardApi(foreign, {
+      status(code) {
+        blocked.push(code);
+        return this;
+      },
+      json() {
+        resolve();
+        return this;
+      },
+    }, resolve);
+  });
+  assert.equal(blocked[0], 403);
+
+  const unauthorized = [];
+  await new Promise((resolve) => {
+    guardApi({
+      path: "/api/settings",
+      headers: { host: "127.0.0.1:8787" },
+      query: {},
+    }, {
+      status(code) {
+        unauthorized.push(code);
+        return this;
+      },
+      json() {
+        resolve();
+        return this;
+      },
+    }, resolve);
+  });
+  assert.equal(unauthorized[0], 401);
+
+  let passed = false;
+  await new Promise((resolve) => {
+    guardApi({
+      path: "/api/settings",
+      headers: { host: "127.0.0.1:8787", "x-flint-token": "flint-test-token-aaaaaaaaaaaaaaaa" },
+      query: {},
+    }, {
+      status() { return this; },
+      json() { return this; },
+    }, () => {
+      passed = true;
+      resolve();
+    });
+  });
+  assert.equal(passed, true);
+});
+
+test("porcelain lists deletes and renames", async () => {
+  const { parsePorcelain } = await import("./worktrees.js");
+  const rows = parsePorcelain(" D gone.py\nR  old.py -> new.py\n?? fresh.py\n");
+  assert.equal(rows.find((item) => item.rel === "gone.py")?.deleted, true);
+  assert.equal(rows.find((item) => item.rel === "old.py")?.deleted, true);
+  assert.equal(rows.find((item) => item.rel === "new.py")?.deleted, false);
+  assert.equal(rows.find((item) => item.rel === "fresh.py")?.deleted, false);
+});
+
+test("publishing a worktree copies deletes and blocks conflicts", async () => {
+  const { openWorktree, publishWorktree, closeWorktree } = await import("./worktrees.js");
+  const { commitFile, commitDelete, beginRun } = await import("./studio.js");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-wt-"));
+  const { spawn } = await import("node:child_process");
+  const git = (cwd, args) => new Promise((resolve) => {
+    const child = spawn("git", args, { cwd, windowsHide: true });
+    let out = "";
+    child.stdout?.on("data", (buf) => { out += buf; });
+    child.stderr?.on("data", (buf) => { out += buf; });
+    child.on("close", (code) => resolve({ code, out }));
+  });
+  try {
+    assert.equal((await git(dir, ["init"])).code, 0);
+    await git(dir, ["config", "user.email", "flint@example.com"]);
+    await git(dir, ["config", "user.name", "Flint"]);
+    await fs.writeFile(path.join(dir, "keep.py"), "print(1)\n");
+    await fs.writeFile(path.join(dir, "gone.py"), "print(2)\n");
+    await fs.writeFile(path.join(dir, "touch.py"), "print(3)\n");
+    assert.equal((await git(dir, ["add", "."])).code, 0);
+    assert.equal((await git(dir, ["commit", "-m", "base"])).code, 0);
+    const tree = await openWorktree(dir, { id: "agent", name: "Worker" });
+    assert.ok(tree?.path);
+    await fs.writeFile(path.join(tree.path, "keep.py"), "print(11)\n");
+    await fs.rm(path.join(tree.path, "gone.py"));
+    await fs.writeFile(path.join(tree.path, "fresh.py"), "print(4)\n");
+    await fs.writeFile(path.join(dir, "touch.py"), "print(33)\n");
+    await fs.writeFile(path.join(tree.path, "touch.py"), "print(333)\n");
+    const run = beginRun(dir, "publish worktree");
+    const copied = await publishWorktree(dir, tree, run, { name: "Worker" }, commitFile, commitDelete);
+    await closeWorktree(dir, tree);
+    assert.equal(await fs.readFile(path.join(dir, "keep.py"), "utf8"), "print(11)\n");
+    assert.equal(await fs.readFile(path.join(dir, "fresh.py"), "utf8"), "print(4)\n");
+    await assert.rejects(() => fs.access(path.join(dir, "gone.py")));
+    assert.equal(await fs.readFile(path.join(dir, "touch.py"), "utf8"), "print(33)\n");
+    assert.equal(copied.some((item) => item.path === "touch.py" && item.conflict), true);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("a flint task cannot complete without verification evidence", async () => {
+  const { proposeTask, approveTask, setTaskStatus, getTask } = await import("./tasks.js");
+  const { detectVerification, runVerification } = await import("./verify.js");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-task-"));
+  try {
+    await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }));
+    const proposed = await proposeTask(dir, {
+      request: "Add user authentication to my application",
+      map: "auth.js\n  login()\n",
+      verification: await detectVerification(dir),
+    });
+    assert.equal(proposed.status, "awaiting_approval");
+    assert.match(proposed.acceptance[0], /requested behavior/i);
+    const approved = await approveTask(dir, proposed.id);
+    assert.equal(approved.status, "approved");
+    await setTaskStatus(dir, proposed.id, "implementing");
+    await assert.rejects(() => setTaskStatus(dir, proposed.id, "completed"), /verification/);
+    await setTaskStatus(dir, proposed.id, "verifying");
+    const report = await runVerification(dir, {
+      checks: proposed.verification.checks,
+      allowed: true,
+      settings: { commands: { mode: "allow" }, check: { command: "", root: "" } },
+    });
+    assert.equal(report.failed.length, 0);
+    assert.ok(report.passed.length >= 1);
+    await setTaskStatus(dir, proposed.id, "review", { verificationReport: report });
+    const done = await setTaskStatus(dir, proposed.id, "completed");
+    assert.equal(done.status, "completed");
+    assert.equal((await getTask(dir, proposed.id)).status, "completed");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});

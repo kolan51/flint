@@ -3,6 +3,8 @@ dist
 release
 site/*.exe
 data/*.json
+data/api-token
 data/workspace-cache
+data/worktrees/
 .DS_Store
 *.log

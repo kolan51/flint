@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AppContext } from "./appContext.js";
-import { api, streamPost } from "./api.js";
+import { api, currentApiToken, streamPost, streamUrl } from "./api.js";
 import { desktop, dirname, relativeTo } from "./desktop.js";
 import { checkRelease, DEFAULT_RELEASE_REPO } from "./updates.js";
 import { claimStarterTitle, packChats, renameSharedChapters, sessionTitle, shareCrewTitles, tidyChapters, unpackChats } from "./sessions.js";
@@ -1547,7 +1547,7 @@ export function AppProvider({ children }) {
   }, [booted]);
 
   useEffect(() => {
-    const source = new EventSource("/api/workspace/events");
+    const source = new EventSource(streamUrl("/api/workspace/events"));
     source.onmessage = () => refreshTree();
     const poll = setInterval(() => refreshTree(), 1200);
     return () => {
@@ -1596,9 +1596,12 @@ export function AppProvider({ children }) {
     function flush() {
       if (!readyRef.current) return;
       const body = JSON.stringify(packChats(booksRef.current, chatsRef.current));
+      const headers = { "Content-Type": "application/json" };
+      const token = currentApiToken();
+      if (token) headers["X-Flint-Token"] = token;
       fetch("/api/chats", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body,
         keepalive: true,
       }).catch(() => {});

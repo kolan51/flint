@@ -1,7 +1,43 @@
-async function json(path, options) {
+let apiToken = "";
+let bootOnce = null;
+
+function authHeaders(extra = {}) {
+  const headers = { ...extra };
+  if (apiToken) headers["X-Flint-Token"] = apiToken;
+  return headers;
+}
+
+export function currentApiToken() {
+  return apiToken;
+}
+
+export async function ensureApiBoot() {
+  if (apiToken) return apiToken;
+  if (!bootOnce) {
+    bootOnce = (async () => {
+      const res = await fetch("/api/boot");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Flint API boot failed");
+      apiToken = String(data.token || "");
+      if (!apiToken) throw new Error("Flint API boot returned no token");
+      return apiToken;
+    })().catch((err) => {
+      bootOnce = null;
+      throw err;
+    });
+  }
+  return bootOnce;
+}
+
+async function json(path, options = {}) {
+  await ensureApiBoot();
+  const headers = authHeaders({
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  });
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `${res.status} ${res.statusText}`);
@@ -9,7 +45,12 @@ async function json(path, options) {
 }
 
 export const api = {
-  health: () => json("/api/health"),
+  boot: () => ensureApiBoot(),
+  health: () => fetch("/api/health").then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Health check failed");
+    return data;
+  }),
   settings: () => json("/api/settings"),
   saveSettings: (body) => json("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
   models: (provider) => json(`/api/models${provider ? `?provider=${encodeURIComponent(provider)}` : ""}`),
@@ -46,7 +87,14 @@ export const api = {
   resizeShell: (id, cols, rows) => json("/api/terminal/resize", { method: "POST", body: JSON.stringify({ id, cols, rows }) }),
   complete: (body, signal) => json("/api/complete", { method: "POST", body: JSON.stringify(body), signal }),
   skills: () => json("/api/skills"),
+  jobs: () => json("/api/jobs"),
   tasks: () => json("/api/tasks"),
+  task: (id) => json(`/api/tasks/${encodeURIComponent(id)}`),
+  proposeTask: (body) => json("/api/tasks/propose", { method: "POST", body: JSON.stringify(body) }),
+  saveTask: (id, body) => json(`/api/tasks/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(body) }),
+  approveTask: (id) => json(`/api/tasks/${encodeURIComponent(id)}/approve`, { method: "POST", body: "{}" }),
+  taskStatus: (id, status, body = {}) => json(`/api/tasks/${encodeURIComponent(id)}/status`, { method: "POST", body: JSON.stringify({ status, ...body }) }),
+  verifyTask: (id) => json(`/api/tasks/${encodeURIComponent(id)}/verify`, { method: "POST", body: "{}" }),
   remember: (body) => json("/api/memory", { method: "POST", body: JSON.stringify(body) }),
   notes: () => json("/api/memory"),
   saveNote: (name, body) => json("/api/memory", { method: "PUT", body: JSON.stringify({ name, body }) }),
@@ -69,9 +117,10 @@ export const api = {
 };
 
 export async function streamPost(path, body, onEvent, signal) {
+  await ensureApiBoot();
   const res = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
     signal,
   });
@@ -101,4 +150,9 @@ export async function streamPost(path, body, onEvent, signal) {
       }
     }
   }
+}
+
+export function streamUrl(path) {
+  const joiner = path.includes("?") ? "&" : "?";
+  return apiToken ? `${path}${joiner}token=${encodeURIComponent(apiToken)}` : path;
 }
