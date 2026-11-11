@@ -42,6 +42,8 @@ import {
   updateTask,
 } from "./tasks.js";
 import { detectVerification, runVerification } from "./verify.js";
+import { runTaskOrchestration } from "./scheduler.js";
+import { routeCrew } from "./modelRouter.js";
 
 const app = express();
 app.use(cors(corsOptions()));
@@ -785,6 +787,28 @@ app.post("/api/tasks/:id/verify", async (req, res) => {
   }
 });
 
+app.post("/api/tasks/:id/run", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const agents = await loadAgents();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const result = await runTaskOrchestration(workspace, req.params.id, { settings, agents });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get("/api/routing", async (_req, res) => {
+  try {
+    const settings = await loadSettings();
+    const agents = await loadAgents();
+    res.json({ routing: settings.routing || { mode: "custom" }, crew: routeCrew(settings, agents) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post("/api/memory", async (req, res) => {
   res.json({ ok: true });
   try {
@@ -1104,21 +1128,30 @@ function crewName(agent, settings) {
 }
 
 function isLead(agent) {
-  return agentRole(agent) === "lead";
+  const role = agentRole(agent);
+  return role === "lead" || role === "architect";
 }
 
 function shapeFor(agent, agents, worker = false) {
-  if (agentRole(agent) === "apply") return "apply";
+  const role = agentRole(agent);
+  if (role === "apply" || role === "implementer") return role === "implementer" ? "implement" : "apply";
+  if (role === "verifier") return "verify";
+  if (role === "reviewer") return "review";
+  if (role === "architect") return "architect";
   if (worker) return "full";
-  if ((agents || []).some((item) => item.id !== agent?.id && agentRole(item) === "apply")) return "decide";
+  if ((agents || []).some((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && (seat === "apply" || seat === "implementer");
+  })) return "decide";
   return "full";
 }
 
 function toolsOf(mode, agent, agents, { allowPass = false, mcp = null, worker = false } = {}) {
   const shape = shapeFor(agent, agents, worker);
   const others = (agents || []).filter((item) => item.id !== agent?.id);
-  const base = toolsFor(mode, allowPass && shape !== "apply", others, shape);
-  if (shape === "apply") return base;
+  const canPass = allowPass && shape !== "apply" && shape !== "implement" && shape !== "verify" && shape !== "review";
+  const base = toolsFor(mode, canPass, others, shape);
+  if (shape === "apply" || shape === "implement" || shape === "verify" || shape === "review") return base;
   return [...base, ...(mcp?.tools || [])];
 }
 
@@ -1130,7 +1163,10 @@ function looksLikeJob(text) {
 export function delegationTargets(agent, agents, messages) {
   const last = [...messages].reverse().find((item) => item.role === "user");
   const text = String(last?.content || "");
-  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
+  const others = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && seat !== "apply" && seat !== "implementer" && seat !== "verifier" && seat !== "reviewer";
+  });
   if (!others.length || !text.trim()) return [];
   const blob = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const named = others.filter((item) => blob.includes(item.name.toLowerCase().replace(/[^a-z0-9]+/g, "")));
@@ -1148,8 +1184,14 @@ export function delegationTargets(agent, agents, messages) {
 export function systemFor(agent, agents, settings, extras = {}) {
   const role = agentRole(agent);
   const compact = settings?.prompt?.compact === true;
-  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
-  const appliers = agents.filter((item) => item.id !== agent?.id && agentRole(item) === "apply");
+  const others = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && seat !== "apply" && seat !== "implementer";
+  });
+  const appliers = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && (seat === "apply" || seat === "implementer");
+  });
   const targets = delegationTargets(agent, agents, extras.messages || []);
   const roster = others.length
     ? `You lead ${others.map((item) => item.name).join(", ")}. For a real job, call assign_work once before you edit or run anything. Give each worker one file. The files must not overlap. They start together, so each task must stand on its own. You wait, then tell the user what each one did.
@@ -1158,11 +1200,17 @@ ${others.map((item) => `- ${crewName(item, settings)}`).join("\n")}`
   const nudge = targets.length
     ? `Split this job across ${targets.map((item) => item.name).join(", ")}. Call assign_work once. Give each worker one file, and do not give two workers the same file. Do not edit or run anything until they have reported back.`
     : "";
-  const roleLine = role === "apply"
+  const roleLine = role === "apply" || role === "implementer"
     ? "You apply one change. Read the file, then edit_file or write_file. Do not plan, do not delegate, and do not run commands."
-    : (appliers.length
-      ? `${appliers.map((item) => crewName(item, settings)).join(", ")} writes the diff. Hand that agent the file and the change with pass_task. Do not edit the file yourself.`
-      : "");
+    : role === "verifier"
+      ? "You verify. Run the folder checks. Do not edit files to make tests pass. Report failures plainly."
+      : role === "reviewer"
+        ? "You review. Read the diff and the verification report. Do not edit files."
+        : role === "architect"
+          ? "You plan. Name files, acceptance, and risks. Hand implementation to an implementer. Do not edit files yourself when an implementer is present."
+          : (appliers.length
+            ? `${appliers.map((item) => crewName(item, settings)).join(", ")} writes the diff. Hand that agent the file and the change with pass_task. Do not edit the file yourself.`
+            : "");
   const journal = String(extras.journal || "").trim();
   const recent = journal ? `Recent work in this folder, shared by every agent:\n${journal}` : "";
   const memory = String(extras.memory || "").trim();
@@ -1174,8 +1222,8 @@ ${others.map((item) => `- ${crewName(item, settings)}`).join("\n")}`
     : (extras.earlier
       ? `${extras.earlier} earlier messages in this session stay saved. This turn sees the recent part.`
       : "");
-  const voice = agent?.systemPrompt || (role === "apply" ? "You apply a change to one file." : "You are a local coding assistant.");
-  if (role === "apply" || (compact && !targets.length)) {
+  const voice = agent?.systemPrompt || (role === "apply" || role === "implementer" ? "You apply a change to one file." : "You are a local coding assistant.");
+  if (role === "apply" || role === "implementer" || role === "verifier" || role === "reviewer" || (compact && !targets.length)) {
     return [voice, roleLine, names].filter(Boolean).join("\n\n");
   }
   if (compact) return [voice, roleLine, names, roster, nudge].filter(Boolean).join("\n\n");

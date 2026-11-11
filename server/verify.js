@@ -30,10 +30,18 @@ export async function detectVerification(workspace) {
   }
   try {
     const names = await fs.readdir(workspace);
-    if (names.some((name) => /^test_.*\.py$/i.test(name) || name === "tests")) {
-      if (!checks.some((item) => item.command.includes("pytest"))) {
-        checks.push(check("Pytest", "python -m pytest -q", "test"));
+    const hasPyTests = names.some((name) => /^test_.*\.py$/i.test(name));
+    let testsHasPy = false;
+    if (names.includes("tests")) {
+      try {
+        const nested = await fs.readdir(path.join(workspace, "tests"));
+        testsHasPy = nested.some((name) => /\.py$/i.test(name));
+      } catch {
+        testsHasPy = false;
       }
+    }
+    if ((hasPyTests || testsHasPy) && !checks.some((item) => item.command.includes("pytest"))) {
+      checks.push(check("Pytest", "python -m pytest -q", "test"));
     }
   } catch {
     /* folder unreadable */

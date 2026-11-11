@@ -226,7 +226,14 @@ function agentSubtitle(agent, activity, tasks, faults, settings) {
   const live = statusLine(activity[agent.id], tasks[agent.id]);
   if (live && live !== "Done" && live !== "Stopped") return live;
   const job = agentJob(agent);
-  const seat = agent?.role === "apply" ? "Apply" : agent?.role === "lead" ? "Lead" : "";
+  const seat = ({
+    apply: "Apply",
+    lead: "Lead",
+    architect: "Architect",
+    implementer: "Implementer",
+    verifier: "Verifier",
+    reviewer: "Reviewer",
+  })[agent?.role] || "";
   if (job && seat) return `${job} · ${seat}`;
   if (job) return job;
   if (seat) return seat;

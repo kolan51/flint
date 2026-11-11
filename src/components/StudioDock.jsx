@@ -303,6 +303,7 @@ export default function StudioDock() {
   const [taskDraft, setTaskDraft] = useState("");
   const [taskNote, setTaskNote] = useState("");
   const [taskBusy, setTaskBusy] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState("");
   const open = reviews.filter((item) => item.status === "open");
 
   async function refreshFlintTasks() {
@@ -528,6 +529,8 @@ export default function StudioDock() {
         {dock === "tasks" && (
           <TaskPane
             tasks={flintTasks}
+            selectedId={selectedTaskId}
+            onSelect={setSelectedTaskId}
             draft={taskDraft}
             note={taskNote}
             busy={taskBusy}
@@ -536,8 +539,9 @@ export default function StudioDock() {
             onPropose={async () => {
               setTaskBusy(true);
               try {
-                await api.proposeTask({ request: taskDraft, agentId: activeAgentId });
+                const data = await api.proposeTask({ request: taskDraft, agentId: activeAgentId });
                 setTaskDraft("");
+                setSelectedTaskId(data.task?.id || "");
                 await refreshFlintTasks();
               } catch (err) {
                 setTaskNote(err.message);
@@ -550,6 +554,18 @@ export default function StudioDock() {
               try {
                 await api.approveTask(id);
                 await api.taskStatus(id, "implementing");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onRun={async (id) => {
+              setTaskBusy(true);
+              try {
+                const data = await api.runTask(id);
+                if (data.stopped) setTaskNote(data.stopped);
                 await refreshFlintTasks();
               } catch (err) {
                 setTaskNote(err.message);
@@ -698,11 +714,14 @@ export default function StudioDock() {
   );
 }
 
-function TaskPane({ tasks, draft, note, busy, onDraft, onRefresh, onPropose, onApprove, onVerify, onComplete }) {
+function TaskPane({ tasks, selectedId, onSelect, draft, note, busy, onDraft, onRefresh, onPropose, onApprove, onRun, onVerify, onComplete }) {
+  const selected = tasks.find((task) => task.id === selectedId) || tasks[0] || null;
+  const report = selected?.verificationReport;
+  const activity = [...(selected?.history || [])].reverse().slice(0, 8);
   return (
     <>
       <p className="dock-note">
-        Propose a Flint Task, approve it, verify with real commands, then complete it. Chat still handles small edits without a task.
+        Task workspace: propose, approve, run the crew, inspect verification evidence, then complete. Chat still handles small edits without a task.
       </p>
       <form
         className="dock-form"
@@ -722,35 +741,80 @@ function TaskPane({ tasks, draft, note, busy, onDraft, onRefresh, onPropose, onA
       </form>
       {note ? <p className="dock-note">{note}</p> : null}
       <div className="hit-list">
-        {tasks.map((task) => {
-          const report = task.verificationReport;
-          return (
-            <article key={task.id} className="note-row" style={{ display: "grid", gap: 8, padding: "8px 0" }}>
-              <div className="hit" style={{ cursor: "default" }}>
-                <b>{task.title}</b>
-                <span>{task.status.replaceAll("_", " ")}{task.acceptance?.[0] ? ` · ${task.acceptance[0]}` : ""}</span>
-              </div>
-              {report ? (
-                <p className="dock-note">
-                  Verify: {report.passed?.length || 0} passed, {report.failed?.length || 0} failed, {report.skipped?.length || 0} skipped
-                  {report.unavailable?.length ? `, ${report.unavailable.length} unavailable` : ""}
-                </p>
-              ) : null}
-              <div className="dock-form">
-                {(task.status === "awaiting_approval" || task.status === "draft") && (
-                  <button type="button" className="btn" disabled={busy} onClick={() => onApprove(task.id)}>Approve</button>
-                )}
-                {(task.status === "implementing" || task.status === "blocked" || task.status === "approved") && (
-                  <button type="button" className="btn" disabled={busy} onClick={() => onVerify(task.id)}>Verify</button>
-                )}
-                {task.status === "review" && (
-                  <button type="button" className="btn" disabled={busy} onClick={() => onComplete(task.id)}>Complete</button>
-                )}
-              </div>
-            </article>
-          );
-        })}
+        {tasks.map((task) => (
+          <button
+            type="button"
+            key={task.id}
+            className="hit"
+            onClick={() => onSelect(task.id)}
+            style={selected?.id === task.id ? { outline: "1px solid var(--line)" } : undefined}
+          >
+            <b>{task.title}</b>
+            <span>{task.status.replaceAll("_", " ")}</span>
+          </button>
+        ))}
       </div>
+      {selected && (
+        <article className="note-row" style={{ display: "grid", gap: 8, padding: "12px 0" }}>
+          <p className="dock-note"><b>Phase</b> · {selected.status.replaceAll("_", " ")}</p>
+          {selected.acceptance?.length ? (
+            <p className="dock-note"><b>Acceptance</b> · {selected.acceptance.join(" · ")}</p>
+          ) : null}
+          {selected.plan?.length ? (
+            <p className="dock-note"><b>Plan</b> · {selected.plan.join(" · ")}</p>
+          ) : null}
+          {selected.files?.length ? (
+            <p className="dock-note"><b>Files</b> · {selected.files.join(", ")}</p>
+          ) : null}
+          {selected.assignment && (
+            <p className="dock-note">
+              <b>Crew</b>
+              {" · "}
+              {[
+                selected.assignment.architect && `Architect ${selected.assignment.architect.name}`,
+                selected.assignment.implementer && `Implementer ${selected.assignment.implementer.name}`,
+                selected.assignment.verifier && `Verifier ${selected.assignment.verifier.name}`,
+                selected.assignment.reviewer && `Reviewer ${selected.assignment.reviewer.name}`,
+              ].filter(Boolean).join(" · ") || "Unassigned"}
+            </p>
+          )}
+          {report ? (
+            <p className="dock-note">
+              <b>Verification</b>
+              {" · "}
+              {report.passed?.length || 0} passed, {report.failed?.length || 0} failed, {report.skipped?.length || 0} skipped
+              {report.unavailable?.length ? `, ${report.unavailable.length} unavailable` : ""}
+              {report.durationMs != null ? ` · ${report.durationMs} ms` : ""}
+            </p>
+          ) : (
+            <p className="dock-note"><b>Verification</b> · not verified</p>
+          )}
+          {activity.length ? (
+            <div className="hit-list">
+              {activity.map((item, index) => (
+                <div key={`${item.at}-${index}`} className="hit" style={{ cursor: "default" }}>
+                  <b>{item.job || "task"}</b>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="dock-form">
+            {(selected.status === "awaiting_approval" || selected.status === "draft") && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onApprove(selected.id)}>Approve</button>
+            )}
+            {(selected.status === "approved" || selected.status === "implementing" || selected.status === "blocked" || selected.status === "failed") && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onRun(selected.id)}>Run crew</button>
+            )}
+            {(selected.status === "implementing" || selected.status === "blocked" || selected.status === "approved") && (
+              <button type="button" className="ghost" disabled={busy} onClick={() => onVerify(selected.id)}>Verify only</button>
+            )}
+            {selected.status === "review" && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onComplete(selected.id)}>Complete</button>
+            )}
+          </div>
+        </article>
+      )}
     </>
   );
 }

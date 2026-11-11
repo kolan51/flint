@@ -2,44 +2,72 @@
 
 Tagline kept: a desktop app for a local model, or an API you already have.
 
-Product direction for this branch: **Your AI engineering team. On your machine. From requirements to verified code.**
+Product direction: **Your AI engineering team. On your machine. From requirements to verified code.**
 
 ## What was already in Flint
 
-- Multi-agent chat with Lead / Apply / Chat seats and prompt jobs
+- Multi-agent chat with seats and prompt jobs
 - Review dock, near-match edits, reply unified diffs, commit-on-keep
 - Ranked repo map, Pyright + TypeScript language server
 - Git worktrees for delegated workers, folder checks, MCP, memory notes
 
-## What this branch adds
+## Landed on `reliability/local-first-workspace`
 
 ### Phase 1 — Security and worktree reliability
 
-- Local API requires an `X-Flint-Token` (bootstrapped from `/api/boot` only for localhost same-origin)
+- Local API requires an `X-Flint-Token` (from `/api/boot` for localhost same-origin only)
 - CORS limited to localhost origins; non-local `Host` and foreign `Origin` are rejected
-- Worktree publish now applies deletes and binary files, reports conflicts instead of overwriting a dirty main file, and no longer silently drops deletions
+- Worktree publish applies deletes and binaries; dirty main-folder files become conflicts
 
-### Phase 2 — Flint Tasks (vertical slice)
+### Phase 2 — Flint Tasks
 
 - Durable tasks under `<workspace>/.flint/tasks/*.json` (schema version 1)
-- Lifecycle with enforced transitions; completion requires a verification report with at least one pass and no failures
-- Propose → approve → implement → verify → review → complete in the Tasks dock
+- Lifecycle with enforced transitions; completion needs a passing verification report
+- Tasks dock: propose → approve → run crew / verify → complete
 - Ordinary chat stays available for small edits
 
-### Phase 3 — Verification (vertical slice)
+### Phase 3 — Verification
 
-- `server/verify.js` detects project checks (npm test/lint/build/typecheck, pytest) and runs them only when commands are allowed
+- `server/verify.js` detects project checks and runs them when commands are allowed
 - Reports distinguish passed, failed, skipped, and unavailable
-- Task completion cannot be claimed from agent text alone
 
-## Intentionally unfinished
+### Phase 4 — Multi-agent orchestration
 
-- Full Architect / Implementer / Verifier / Reviewer orchestration for every task
-- Automatic model routing modes and cost budgets
-- Dedicated full-page engineering dashboard beyond the Tasks dock
-- Benchmark suite against Turri or other tools
-- Signing, cloud agents, marketplace, and a native PTY (still out of scope)
+- Seats: Chat, Lead, Architect, Implementer, Apply, Verifier, Reviewer
+- Tool shapes: verifiers cannot edit; reviewers cannot edit or run commands
+- `server/scheduler.js` assigns a crew, records activity, runs verification, bounds repair loops to 2
+
+### Phase 5 — Model routing
+
+- Settings modes: Custom, Local only, Balanced, Quality first
+- `server/modelRouter.js` picks agents with an explicit reason
+- Local only blocks remote provider addresses
+- Cost fields stay empty unless a provider reports billing data
+
+### Phase 6 — Task workspace
+
+- Tasks dock shows phase, acceptance, plan, files, crew, verification evidence, and activity
+- **Run crew** drives the scheduler without inventing progress percentages
+
+### Phase 7 — DX
+
+- README Tasks + routing notes
+- This file
+- `benchmarks/README.md`
+
+### Phase 8 — Benchmarks
+
+- `benchmarks/fixtures/calc-bug` and `node benchmarks/run.mjs`
+- Offline, reproducible; no Turri comparison scores
+
+## Still open / partial
+
+- Live LLM turns for Architect/Implementer inside `runTaskOrchestration` (today: plan from the task, verify for real, activity log for roles)
+- Per-role model pins UI beyond Settings mode
+- Full-page dashboard outside the dock
+- Broader benchmark suite and live-model evals
+- Signing, cloud agents, marketplace, native PTY
 
 ## Security boundary
 
-Flint binds to `127.0.0.1`. That is not enough by itself. The token + localhost origin/host checks are meant to stop a random website from reading settings, writing files, or running terminal commands through the local API. Open Flint through the desktop app or the local Vite/dev URL so `/api/boot` can issue the token to that window only.
+Flint binds to `127.0.0.1`. That is not enough by itself. The token + localhost origin/host checks stop a random website from reading settings, writing files, or running terminal commands through the local API.

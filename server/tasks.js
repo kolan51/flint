@@ -74,6 +74,9 @@ export function shapeTask(raw = {}) {
     },
     history: Array.isArray(raw.history) ? raw.history.slice(-40) : [],
     verificationReport: raw.verificationReport || null,
+    assignment: raw.assignment && typeof raw.assignment === "object" ? raw.assignment : null,
+    routing: raw.routing && typeof raw.routing === "object" ? raw.routing : null,
+    repairAttempts: Math.max(0, Number(raw.repairAttempts) || 0),
     worktreeId: String(raw.worktreeId || ""),
     approval: {
       required: raw.approval?.required !== false,

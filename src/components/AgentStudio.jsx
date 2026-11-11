@@ -10,7 +10,12 @@ function shortModel(model) {
 }
 
 function crewSeat(agent) {
-  if (agent?.role === "apply" || agent?.role === "lead" || agent?.role === "chat") return agent.role;
+  const role = String(agent?.role || "").toLowerCase();
+  if (["apply", "lead", "chat", "architect", "implementer", "verifier", "reviewer"].includes(role)) return role;
+  if (/architect|planner/i.test(String(agent?.name || ""))) return "architect";
+  if (/implement|builder|coder|patch/i.test(String(agent?.name || ""))) return "implementer";
+  if (/verif|checker|tester/i.test(String(agent?.name || ""))) return "verifier";
+  if (/review/i.test(String(agent?.name || ""))) return "reviewer";
   return /senior|main|lead|manager/i.test(String(agent?.name || "")) ? "lead" : "chat";
 }
 
@@ -112,12 +117,16 @@ export default function AgentStudio() {
             value={crewSeat(draft)}
             options={[
               { value: "chat", label: "Chat" },
-              { value: "apply", label: "Apply" },
               { value: "lead", label: "Lead" },
+              { value: "architect", label: "Architect" },
+              { value: "implementer", label: "Implementer" },
+              { value: "apply", label: "Apply" },
+              { value: "verifier", label: "Verifier" },
+              { value: "reviewer", label: "Reviewer" },
             ]}
             onChange={(role) => setDraft({ ...draft, role })}
           />
-          <span className="model-hint">Chat, Apply, and Lead are the only seats. A builder, reviewer, checker, or tester stays in the prompt below.</span>
+          <span className="model-hint">Crew seats control tools. The prompt still names the job in plain language. Simple chat edits do not need every seat.</span>
         </label>
         <div className="face-field">
           <span>Face</span>

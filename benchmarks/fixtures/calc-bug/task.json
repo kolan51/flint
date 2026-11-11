@@ -1,0 +1,14 @@
+{
+  "id": "bench-calc-zero",
+  "title": "Reject divide by zero",
+  "request": "Fix divide so dividing by zero throws an error that mentions zero.",
+  "acceptance": [
+    "divide(1, 0) throws",
+    "npm test passes"
+  ],
+  "files": ["calc.js", "test.js"],
+  "expected": {
+    "failingChecksBefore": 1,
+    "humanIntervention": "apply the zero guard, or let an agent do it"
+  }
+}

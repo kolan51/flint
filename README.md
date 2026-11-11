@@ -112,9 +112,15 @@ Or [open the site](https://kolan51.github.io/flint/) and press the button for yo
 
 ## Flint Tasks
 
-For a larger change, open **More → Tasks** in the dock. Propose a request, edit the acceptance criteria, approve it, then verify with the folder’s real checks. A task cannot complete on the model’s word alone. Small chat edits still work without a task.
+For a larger change, open **More → Tasks** in the dock. Propose a request, approve it, run the crew, and inspect the verification evidence. A task cannot complete on the model’s word alone. Small chat edits still work without a task.
 
-Engineering notes for the local API token, worktree publish rules, and the remaining roadmap live in [`docs/ENGINEERING.md`](docs/ENGINEERING.md).
+Crew seats now include Architect, Implementer, Verifier, and Reviewer. Settings → Model routing can stay on Custom, or prefer Local only / Balanced / Quality first.
+
+Engineering notes, security boundaries, and the remaining roadmap live in [`docs/ENGINEERING.md`](docs/ENGINEERING.md). Offline verification of the task path:
+
+```bash
+node benchmarks/run.mjs
+```
 
 ## From this repo
 

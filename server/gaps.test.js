@@ -360,6 +360,78 @@ test("publishing a worktree copies deletes and blocks conflicts", async () => {
   }
 });
 
+test("crew seats map to the right tool shapes", async () => {
+  process.env.FLINT_NO_LISTEN = "1";
+  const { agentRole, toolsFor } = await import("./tools.js");
+  assert.equal(agentRole({ role: "verifier" }), "verifier");
+  assert.equal(agentRole({ name: "Architect One" }), "architect");
+  const verifyTools = toolsFor("act", false, [], "verify").map((item) => item.function.name);
+  assert.equal(verifyTools.includes("run_command"), true);
+  assert.equal(verifyTools.includes("edit_file"), false);
+  const reviewTools = toolsFor("act", false, [], "review").map((item) => item.function.name);
+  assert.equal(reviewTools.includes("run_command"), false);
+  assert.equal(reviewTools.includes("read_file"), true);
+});
+
+test("local-only routing refuses a remote implementer pin", async () => {
+  const { routeFor } = await import("./modelRouter.js");
+  const settings = {
+    routing: { mode: "local_only", roles: { implementer: "cloud" } },
+    providers: {
+      remote: { id: "remote", baseUrl: "https://api.openai.com" },
+      local: { id: "local", baseUrl: "http://127.0.0.1:8080" },
+    },
+    activeProvider: "remote",
+  };
+  const agents = [
+    { id: "cloud", name: "Cloud", role: "implementer", provider: "remote", model: "gpt" },
+    { id: "box", name: "Box", role: "implementer", provider: "local", model: "qwen" },
+  ];
+  const blocked = routeFor("implementer", { settings, agents });
+  assert.equal(blocked.blocked, true);
+  const open = routeFor("implementer", {
+    settings: { ...settings, routing: { mode: "local_only", roles: {} } },
+    agents,
+  });
+  assert.equal(open.blocked, false);
+  assert.equal(open.agentId, "box");
+  assert.match(open.reason, /local only/i);
+});
+
+test("task orchestration assigns a crew and reaches review", async () => {
+  const { proposeTask, approveTask } = await import("./tasks.js");
+  const { runTaskOrchestration } = await import("./scheduler.js");
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "flint-orch-"));
+  try {
+    await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }));
+    const proposed = await proposeTask(dir, {
+      request: "Keep the calculator green",
+      verification: { checks: [{ id: "unit-tests", name: "Unit tests", command: "npm test", kind: "test" }] },
+    });
+    await approveTask(dir, proposed.id);
+    const agents = [
+      { id: "a", name: "Architect", role: "architect", provider: "local", model: "m" },
+      { id: "i", name: "Patch", role: "implementer", provider: "local", model: "m" },
+      { id: "v", name: "Checker", role: "verifier", provider: "local", model: "m" },
+      { id: "r", name: "Reviewer", role: "reviewer", provider: "local", model: "m" },
+    ];
+    const settings = {
+      routing: { mode: "balanced" },
+      providers: { local: { id: "local", baseUrl: "http://127.0.0.1:8080" } },
+      activeProvider: "local",
+      commands: { mode: "allow" },
+      check: { command: "", root: "" },
+    };
+    const result = await runTaskOrchestration(dir, proposed.id, { settings, agents });
+    assert.equal(result.task.status, "review");
+    assert.equal(result.crew.implementer.name, "Patch");
+    assert.ok(result.report.passed.length >= 1);
+    assert.ok(result.task.history.some((item) => /Planning|Implementing|Running checks|Examining/i.test(item.text)));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("a flint task cannot complete without verification evidence", async () => {
   const { proposeTask, approveTask, setTaskStatus, getTask } = await import("./tasks.js");
   const { detectVerification, runVerification } = await import("./verify.js");

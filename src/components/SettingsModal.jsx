@@ -427,6 +427,29 @@ export default function SettingsModal() {
         </div>
 
         <div className="search-setup">
+          <h3>Model routing</h3>
+          <p className="dir-label">How Flint picks an agent for Architect, Implementer, Verifier, and Reviewer on a Task. Custom keeps your seat pins and defaults.</p>
+          <label>
+            Mode
+            <FieldSelect
+              ariaLabel="Model routing"
+              value={settings?.routing?.mode || "custom"}
+              options={[
+                { value: "custom", label: "Custom" },
+                { value: "local_only", label: "Local only" },
+                { value: "balanced", label: "Balanced" },
+                { value: "quality", label: "Quality first" },
+              ]}
+              onChange={(mode) => persistSettings({
+                ...settings,
+                routing: { ...(settings.routing || {}), mode },
+              })}
+            />
+          </label>
+          <p className="dir-label">Local only never sends task content to a remote provider address. Costs are not invented when a provider does not report them.</p>
+        </div>
+
+        <div className="search-setup">
           <h3>Updates</h3>
           <div className="update-line">
             <div className="update-copy">
