@@ -62,11 +62,14 @@ Product direction: **Your AI engineering team. On your machine. From requirement
 
 ## Still open / partial
 
-- Live LLM turns for Architect/Implementer inside `runTaskOrchestration` (today: plan from the task, verify for real, activity log for roles)
-- Per-role model pins UI beyond Settings mode
-- Full-page dashboard outside the dock
-- Broader benchmark suite and live-model evals
+- Broader benchmark suite and live-model evals against other tools
 - Signing, cloud agents, marketplace, native PTY
+
+## Fixed after the first reliability pass
+
+- `/api/tasks/:id/run` streams live Architect (plan), Implementer (act), and Reviewer turns through `runAgentLoop`
+- Settings → Model routing pins each role to a specific agent
+- Full Tasks board modal (`Ctrl+K` → Tasks) outside the dock
 
 ## Security boundary
 

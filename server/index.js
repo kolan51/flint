@@ -788,14 +788,87 @@ app.post("/api/tasks/:id/verify", async (req, res) => {
 });
 
 app.post("/api/tasks/:id/run", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const cancel = cancelOnDisconnect(req);
   try {
     const settings = await loadSettings();
     const agents = await loadAgents();
     const workspace = await ensureWorkspace(settings.workspace);
-    const result = await runTaskOrchestration(workspace, req.params.id, { settings, agents });
-    res.json(result);
+    const rules = await loadRules(workspace);
+    let mcp = { tools: [], map: new Map() };
+    try {
+      mcp = await listMcpTools(settings.mcp || []);
+    } catch {
+      mcp = { tools: [], map: new Map() };
+    }
+    const emit = (event) => {
+      if (!res.writableEnded) send(res, event);
+    };
+    const runAgentTurn = async ({ agent, job, mode, prompt }) => {
+      if (cancel.signal.aborted) throw new Error("Cancelled.");
+      const provider = getProvider(settings, agent?.provider);
+      const model = agent?.model || settings.defaultModel;
+      if (!model) throw new Error(`${agent?.name || "Agent"} has no model selected.`);
+      const map = await repoMap(workspace, prompt).catch(() => "");
+      const run = beginRun(workspace, prompt);
+      emit({ type: "run", id: run.id, job, agentId: agent.id });
+      emit({ type: "status", job, agentId: agent.id, text: `${agent.name}: ${job}` });
+      let reply = "";
+      await runAgentLoop({
+        settings,
+        agents,
+        agent,
+        provider,
+        model,
+        temperature: agent?.temperature ?? 0.6,
+        messages: [
+          { role: "system", content: systemFor(agent, agents, settings, { rules, mode, map, messages: [{ role: "user", content: prompt }] }) },
+          { role: "user", content: prompt },
+        ],
+        workspace,
+        tools: toolsOf(mode, agent, agents, { allowPass: false, mcp }),
+        allowPass: false,
+        emit: (event) => {
+          if (event.type === "delta") reply += event.text || "";
+          emit({ ...event, job, agentId: agent.id, agent: agent.name });
+        },
+        mode,
+        run,
+        rules,
+        mcp,
+        signal: cancel.signal,
+      });
+      return { reply, run };
+    };
+    const result = await runTaskOrchestration(workspace, req.params.id, {
+      settings,
+      agents,
+      signal: cancel.signal,
+      emit,
+      runAgentTurn,
+    });
+    emit({
+      type: "done",
+      task: result.task,
+      report: result.report,
+      crew: result.crew,
+      stopped: result.stopped || "",
+    });
+    res.end();
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    if (cancel.signal.aborted || err?.name === "AbortError") {
+      if (!res.writableEnded) {
+        send(res, { type: "done", stopped: true });
+        res.end();
+      }
+      return;
+    }
+    if (!res.writableEnded) {
+      send(res, { type: "error", error: err.message });
+      res.end();
+    }
   }
 });
 

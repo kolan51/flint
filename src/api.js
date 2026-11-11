@@ -95,7 +95,7 @@ export const api = {
   approveTask: (id) => json(`/api/tasks/${encodeURIComponent(id)}/approve`, { method: "POST", body: "{}" }),
   taskStatus: (id, status, body = {}) => json(`/api/tasks/${encodeURIComponent(id)}/status`, { method: "POST", body: JSON.stringify({ status, ...body }) }),
   verifyTask: (id) => json(`/api/tasks/${encodeURIComponent(id)}/verify`, { method: "POST", body: "{}" }),
-  runTask: (id) => json(`/api/tasks/${encodeURIComponent(id)}/run`, { method: "POST", body: "{}" }),
+  runTask: (id, onEvent, signal) => streamPost(`/api/tasks/${encodeURIComponent(id)}/run`, {}, onEvent, signal),
   routing: () => json("/api/routing"),
   remember: (body) => json("/api/memory", { method: "POST", body: JSON.stringify(body) }),
   notes: () => json("/api/memory"),

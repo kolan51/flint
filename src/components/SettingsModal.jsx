@@ -25,7 +25,7 @@ async function installUpdate(info) {
 }
 
 export default function SettingsModal() {
-  const { settings, persistSettings, refreshModels, refreshBackendStatus, setModal, backendStatus, updateInfo, checkUpdates } = useApp();
+  const { settings, persistSettings, refreshModels, refreshBackendStatus, setModal, backendStatus, updateInfo, checkUpdates, agents } = useApp();
   const [form, setForm] = useState(emptyForm);
   const [probe, setProbe] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -428,7 +428,7 @@ export default function SettingsModal() {
 
         <div className="search-setup">
           <h3>Model routing</h3>
-          <p className="dir-label">How Flint picks an agent for Architect, Implementer, Verifier, and Reviewer on a Task. Custom keeps your seat pins and defaults.</p>
+          <p className="dir-label">How Flint picks an agent for Architect, Implementer, Verifier, and Reviewer on a Task. Pins win when the mode is Custom, or when a pin still matches Local only.</p>
           <label>
             Mode
             <FieldSelect
@@ -442,10 +442,41 @@ export default function SettingsModal() {
               ]}
               onChange={(mode) => persistSettings({
                 ...settings,
-                routing: { ...(settings.routing || {}), mode },
+                routing: { ...(settings.routing || { roles: {} }), mode },
               })}
             />
           </label>
+          {[
+            ["architect", "Architect"],
+            ["implementer", "Implementer"],
+            ["verifier", "Verifier"],
+            ["reviewer", "Reviewer"],
+          ].map(([key, label]) => (
+            <label key={key}>
+              {label} agent
+              <FieldSelect
+                ariaLabel={`${label} agent`}
+                value={settings?.routing?.roles?.[key] || ""}
+                options={[
+                  { value: "", label: "Auto" },
+                  ...(agents || []).map((agent) => ({
+                    value: agent.id,
+                    label: `${agent.name}${agent.model ? ` · ${String(agent.model).split(/[/\\]/).pop()}` : ""}`,
+                  })),
+                ]}
+                onChange={(agentId) => persistSettings({
+                  ...settings,
+                  routing: {
+                    mode: settings?.routing?.mode || "custom",
+                    roles: {
+                      ...(settings?.routing?.roles || {}),
+                      [key]: agentId,
+                    },
+                  },
+                })}
+              />
+            </label>
+          ))}
           <p className="dir-label">Local only never sends task content to a remote provider address. Costs are not invented when a provider does not report them.</p>
         </div>
 

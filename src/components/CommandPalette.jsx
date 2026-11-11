@@ -20,6 +20,7 @@ export default function CommandPalette() {
     { label: "Open files", hint: "Ctrl O", run: () => app.openLocalFiles() },
     { label: "Save file", hint: "Ctrl S", run: () => app.activePath && app.saveTab(app.activePath) },
     { label: "Settings", run: () => app.setModal("settings") },
+    { label: "Tasks", run: () => app.setModal("tasks") },
     { label: "New agent", run: () => app.addAgent() },
     { label: "About Flint", run: () => app.setModal("about") },
     { label: app.theme === "light" ? "Use dark theme" : "Use light theme", run: () => app.toggleTheme() },

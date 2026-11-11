@@ -422,10 +422,25 @@ test("task orchestration assigns a crew and reaches review", async () => {
       commands: { mode: "allow" },
       check: { command: "", root: "" },
     };
-    const result = await runTaskOrchestration(dir, proposed.id, { settings, agents });
+    const turns = [];
+    const result = await runTaskOrchestration(dir, proposed.id, {
+      settings,
+      agents,
+      runAgentTurn: async ({ agent, job, mode, prompt }) => {
+        turns.push({ id: agent.id, job, mode, prompt: String(prompt || "").slice(0, 80) });
+        if (job === "architect") return { reply: "1. Read calc\n2. Fix the zero case\n3. Keep tests" };
+        if (job === "implementer") return { reply: "Edited calc.js" };
+        if (job === "reviewer") return { reply: "Approve. The check is green." };
+        return { reply: "" };
+      },
+    });
     assert.equal(result.task.status, "review");
     assert.equal(result.crew.implementer.name, "Patch");
     assert.ok(result.report.passed.length >= 1);
+    assert.ok(turns.some((item) => item.job === "architect" && item.mode === "plan"));
+    assert.ok(turns.some((item) => item.job === "implementer" && item.mode === "act"));
+    assert.ok(turns.some((item) => item.job === "reviewer"));
+    assert.ok(result.task.plan.some((step) => /zero|Fix/i.test(step)));
     assert.ok(result.task.history.some((item) => /Planning|Implementing|Running checks|Examining/i.test(item.text)));
   } finally {
     await fs.rm(dir, { recursive: true, force: true });

@@ -286,6 +286,7 @@ export default function StudioDock() {
     activity,
     agents,
     activeAgentId,
+    setModal,
   } = useApp();
   const [commitMessage, setCommitMessage] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -304,6 +305,7 @@ export default function StudioDock() {
   const [taskNote, setTaskNote] = useState("");
   const [taskBusy, setTaskBusy] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [taskLive, setTaskLive] = useState("");
   const open = reviews.filter((item) => item.status === "open");
 
   async function refreshFlintTasks() {
@@ -561,16 +563,27 @@ export default function StudioDock() {
                 setTaskBusy(false);
               }
             }}
+            live={taskLive}
+            onOpenBoard={() => setModal("tasks")}
             onRun={async (id) => {
               setTaskBusy(true);
+              setTaskLive("Starting crew…");
               try {
-                const data = await api.runTask(id);
-                if (data.stopped) setTaskNote(data.stopped);
+                await api.runTask(id, (event) => {
+                  if (event.type === "status" || event.type === "activity") setTaskLive(event.text || event.type);
+                  if (event.type === "verification") {
+                    const report = event.report || {};
+                    setTaskLive(`Verify · ${report.passed?.length || 0} passed, ${report.failed?.length || 0} failed`);
+                  }
+                  if (event.type === "done" && event.stopped) setTaskNote(event.stopped);
+                  if (event.type === "error") setTaskNote(event.error || "Crew failed");
+                });
                 await refreshFlintTasks();
               } catch (err) {
                 setTaskNote(err.message);
               } finally {
                 setTaskBusy(false);
+                setTaskLive("");
               }
             }}
             onVerify={async (id) => {
@@ -714,15 +727,18 @@ export default function StudioDock() {
   );
 }
 
-function TaskPane({ tasks, selectedId, onSelect, draft, note, busy, onDraft, onRefresh, onPropose, onApprove, onRun, onVerify, onComplete }) {
+function TaskPane({ tasks, selectedId, onSelect, draft, note, busy, live, onDraft, onRefresh, onPropose, onApprove, onRun, onVerify, onComplete, onOpenBoard }) {
   const selected = tasks.find((task) => task.id === selectedId) || tasks[0] || null;
   const report = selected?.verificationReport;
   const activity = [...(selected?.history || [])].reverse().slice(0, 8);
   return (
     <>
       <p className="dock-note">
-        Task workspace: propose, approve, run the crew, inspect verification evidence, then complete. Chat still handles small edits without a task.
+        Task workspace: propose, approve, run the crew (live Architect + Implementer turns), inspect verification, then complete.
+        {" "}
+        <button type="button" className="ghost" onClick={onOpenBoard}>Open full Tasks board</button>
       </p>
+      {live ? <p className="dock-note"><b>Live</b> · {live}</p> : null}
       <form
         className="dock-form"
         onSubmit={(event) => {

@@ -144,6 +144,7 @@ export default function TitleBar() {
             onOpen={openWorkspaceFolder}
             onPick={openRecent}
           />
+          <IconButton name="tasks" label="Tasks" onClick={() => setModal("tasks")} />
           <IconButton name="settings" label="Settings" onClick={() => setModal("settings")} />
           <IconButton
             name={theme === "light" ? "moon" : "sun"}
@@ -347,6 +348,14 @@ function Icon({ name }) {
     return (
       <svg {...props}>
         <path d="M2 4.5h4l1.2 1.4H14V12.5H2z" />
+      </svg>
+    );
+  }
+  if (name === "tasks") {
+    return (
+      <svg {...props}>
+        <path d="M3 3.5h10v9H3z" />
+        <path d="M5 6h6M5 8.5h6M5 11h3.5" />
       </svg>
     );
   }
