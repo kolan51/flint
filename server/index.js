@@ -16,7 +16,7 @@ import {
 import { getProvider, listModels, probeProvider, streamChat, completeText } from "./providers.js";
 import { createFile, deletePath, languageFromPath, listTree, readFile, renamePath, writeFile } from "./workspace.js";
 import { agentJobLine, agentRole, applyReplyText, runTool, toolsFor } from "./tools.js";
-import { acceptPath, beginRun, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
+import { acceptPath, beginRun, commitDelete, commitFile, decideCommand, gitBranches, gitCheckout, gitCommit, gitStatus, gitSync, journalText, listJobs, listRuns, loadRules, rejectHunk, rejectPath, releaseTask, releaseWaiting, runCommand, searchWorkspace, undoRun } from "./studio.js";
 import { repoMap } from "./repomap.js";
 import { checkCommandFor } from "./check.js";
 import { ensureLsp, lspComplete, lspProblems, lspStatus, lspSync } from "./lsp.js";
@@ -31,10 +31,24 @@ import { listSkills } from "./skills.js";
 import { closeWorktree, listWorktrees, openWorktree, publishWorktree } from "./worktrees.js";
 import { projectStatus, startPreview, startProject, stopProject } from "./preview.js";
 import { readProject, saveProject } from "./projects.js";
+import { allowBoot, apiToken, corsOptions, guardApi } from "./security.js";
+import {
+  approveTask,
+  createTask,
+  getTask,
+  listTasks,
+  proposeTask,
+  setTaskStatus,
+  updateTask,
+} from "./tasks.js";
+import { detectVerification, runVerification } from "./verify.js";
+import { runTaskOrchestration } from "./scheduler.js";
+import { routeCrew } from "./modelRouter.js";
 
 const app = express();
-app.use(cors());
+app.use(cors(corsOptions()));
 app.use(express.json({ limit: "16mb" }));
+app.use(guardApi);
 
 function send(res, event) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -108,7 +122,14 @@ function watchWorkspace(root) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "local-bot" });
+  res.json({ ok: true, name: "Flint" });
+});
+
+app.get("/api/boot", (req, res) => {
+  if (!allowBoot(req)) {
+    return res.status(403).json({ error: "Boot token is only for the local Flint window." });
+  }
+  res.json({ ok: true, token: apiToken() });
 });
 
 app.get("/api/settings", async (_req, res) => {
@@ -653,8 +674,212 @@ app.get("/api/skills", async (_req, res) => {
   }
 });
 
-app.get("/api/tasks", (_req, res) => {
+app.get("/api/jobs", (_req, res) => {
   res.json({ jobs: listJobs() });
+});
+
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    res.json({ tasks: await listTasks(workspace), jobs: listJobs() });
+  } catch (err) {
+    res.status(400).json({ error: err.message, tasks: [], jobs: listJobs() });
+  }
+});
+
+app.get("/api/tasks/:id", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await getTask(workspace, req.params.id);
+    if (!task) return res.status(404).json({ error: "Task not found." });
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/propose", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const map = await repoMap(workspace, req.body?.request || "").catch(() => "");
+    const verification = await detectVerification(workspace);
+    const task = await proposeTask(workspace, {
+      request: req.body?.request || "",
+      map,
+      verification,
+      agentId: req.body?.agentId || "",
+      model: req.body?.model || "",
+    });
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await createTask(workspace, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put("/api/tasks/:id", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await updateTask(workspace, req.params.id, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/approve", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await approveTask(workspace, req.params.id);
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/status", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await setTaskStatus(workspace, req.params.id, req.body?.status, req.body || {});
+    res.json({ task });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/verify", async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const task = await getTask(workspace, req.params.id);
+    if (!task) return res.status(404).json({ error: "Task not found." });
+    await setTaskStatus(workspace, task.id, "verifying");
+    const report = await runVerification(workspace, {
+      checks: task.verification?.checks || [],
+      settings,
+      allowed: settings.commands?.mode === "allow",
+    });
+    const next = report.failed.length
+      ? "blocked"
+      : report.passed.length
+        ? "review"
+        : "blocked";
+    const updated = await setTaskStatus(workspace, task.id, next, { verificationReport: report });
+    res.json({ task: updated, report });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/run", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const cancel = cancelOnDisconnect(req);
+  try {
+    const settings = await loadSettings();
+    const agents = await loadAgents();
+    const workspace = await ensureWorkspace(settings.workspace);
+    const rules = await loadRules(workspace);
+    let mcp = { tools: [], map: new Map() };
+    try {
+      mcp = await listMcpTools(settings.mcp || []);
+    } catch {
+      mcp = { tools: [], map: new Map() };
+    }
+    const emit = (event) => {
+      if (!res.writableEnded) send(res, event);
+    };
+    const runAgentTurn = async ({ agent, job, mode, prompt }) => {
+      if (cancel.signal.aborted) throw new Error("Cancelled.");
+      const provider = getProvider(settings, agent?.provider);
+      const model = agent?.model || settings.defaultModel;
+      if (!model) throw new Error(`${agent?.name || "Agent"} has no model selected.`);
+      const map = await repoMap(workspace, prompt).catch(() => "");
+      const run = beginRun(workspace, prompt);
+      emit({ type: "run", id: run.id, job, agentId: agent.id });
+      emit({ type: "status", job, agentId: agent.id, text: `${agent.name}: ${job}` });
+      let reply = "";
+      await runAgentLoop({
+        settings,
+        agents,
+        agent,
+        provider,
+        model,
+        temperature: agent?.temperature ?? 0.6,
+        messages: [
+          { role: "system", content: systemFor(agent, agents, settings, { rules, mode, map, messages: [{ role: "user", content: prompt }] }) },
+          { role: "user", content: prompt },
+        ],
+        workspace,
+        tools: toolsOf(mode, agent, agents, { allowPass: false, mcp }),
+        allowPass: false,
+        emit: (event) => {
+          if (event.type === "delta") reply += event.text || "";
+          emit({ ...event, job, agentId: agent.id, agent: agent.name });
+        },
+        mode,
+        run,
+        rules,
+        mcp,
+        signal: cancel.signal,
+      });
+      return { reply, run };
+    };
+    const result = await runTaskOrchestration(workspace, req.params.id, {
+      settings,
+      agents,
+      signal: cancel.signal,
+      emit,
+      runAgentTurn,
+    });
+    emit({
+      type: "done",
+      task: result.task,
+      report: result.report,
+      crew: result.crew,
+      stopped: result.stopped || "",
+    });
+    res.end();
+  } catch (err) {
+    if (cancel.signal.aborted || err?.name === "AbortError") {
+      if (!res.writableEnded) {
+        send(res, { type: "done", stopped: true });
+        res.end();
+      }
+      return;
+    }
+    if (!res.writableEnded) {
+      send(res, { type: "error", error: err.message });
+      res.end();
+    }
+  }
+});
+
+app.get("/api/routing", async (_req, res) => {
+  try {
+    const settings = await loadSettings();
+    const agents = await loadAgents();
+    res.json({ routing: settings.routing || { mode: "custom" }, crew: routeCrew(settings, agents) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.post("/api/memory", async (req, res) => {
@@ -976,21 +1201,30 @@ function crewName(agent, settings) {
 }
 
 function isLead(agent) {
-  return agentRole(agent) === "lead";
+  const role = agentRole(agent);
+  return role === "lead" || role === "architect";
 }
 
 function shapeFor(agent, agents, worker = false) {
-  if (agentRole(agent) === "apply") return "apply";
+  const role = agentRole(agent);
+  if (role === "apply" || role === "implementer") return role === "implementer" ? "implement" : "apply";
+  if (role === "verifier") return "verify";
+  if (role === "reviewer") return "review";
+  if (role === "architect") return "architect";
   if (worker) return "full";
-  if ((agents || []).some((item) => item.id !== agent?.id && agentRole(item) === "apply")) return "decide";
+  if ((agents || []).some((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && (seat === "apply" || seat === "implementer");
+  })) return "decide";
   return "full";
 }
 
 function toolsOf(mode, agent, agents, { allowPass = false, mcp = null, worker = false } = {}) {
   const shape = shapeFor(agent, agents, worker);
   const others = (agents || []).filter((item) => item.id !== agent?.id);
-  const base = toolsFor(mode, allowPass && shape !== "apply", others, shape);
-  if (shape === "apply") return base;
+  const canPass = allowPass && shape !== "apply" && shape !== "implement" && shape !== "verify" && shape !== "review";
+  const base = toolsFor(mode, canPass, others, shape);
+  if (shape === "apply" || shape === "implement" || shape === "verify" || shape === "review") return base;
   return [...base, ...(mcp?.tools || [])];
 }
 
@@ -1002,7 +1236,10 @@ function looksLikeJob(text) {
 export function delegationTargets(agent, agents, messages) {
   const last = [...messages].reverse().find((item) => item.role === "user");
   const text = String(last?.content || "");
-  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
+  const others = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && seat !== "apply" && seat !== "implementer" && seat !== "verifier" && seat !== "reviewer";
+  });
   if (!others.length || !text.trim()) return [];
   const blob = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const named = others.filter((item) => blob.includes(item.name.toLowerCase().replace(/[^a-z0-9]+/g, "")));
@@ -1020,8 +1257,14 @@ export function delegationTargets(agent, agents, messages) {
 export function systemFor(agent, agents, settings, extras = {}) {
   const role = agentRole(agent);
   const compact = settings?.prompt?.compact === true;
-  const others = agents.filter((item) => item.id !== agent?.id && agentRole(item) !== "apply");
-  const appliers = agents.filter((item) => item.id !== agent?.id && agentRole(item) === "apply");
+  const others = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && seat !== "apply" && seat !== "implementer";
+  });
+  const appliers = agents.filter((item) => {
+    const seat = agentRole(item);
+    return item.id !== agent?.id && (seat === "apply" || seat === "implementer");
+  });
   const targets = delegationTargets(agent, agents, extras.messages || []);
   const roster = others.length
     ? `You lead ${others.map((item) => item.name).join(", ")}. For a real job, call assign_work once before you edit or run anything. Give each worker one file. The files must not overlap. They start together, so each task must stand on its own. You wait, then tell the user what each one did.
@@ -1030,11 +1273,17 @@ ${others.map((item) => `- ${crewName(item, settings)}`).join("\n")}`
   const nudge = targets.length
     ? `Split this job across ${targets.map((item) => item.name).join(", ")}. Call assign_work once. Give each worker one file, and do not give two workers the same file. Do not edit or run anything until they have reported back.`
     : "";
-  const roleLine = role === "apply"
+  const roleLine = role === "apply" || role === "implementer"
     ? "You apply one change. Read the file, then edit_file or write_file. Do not plan, do not delegate, and do not run commands."
-    : (appliers.length
-      ? `${appliers.map((item) => crewName(item, settings)).join(", ")} writes the diff. Hand that agent the file and the change with pass_task. Do not edit the file yourself.`
-      : "");
+    : role === "verifier"
+      ? "You verify. Run the folder checks. Do not edit files to make tests pass. Report failures plainly."
+      : role === "reviewer"
+        ? "You review. Read the diff and the verification report. Do not edit files."
+        : role === "architect"
+          ? "You plan. Name files, acceptance, and risks. Hand implementation to an implementer. Do not edit files yourself when an implementer is present."
+          : (appliers.length
+            ? `${appliers.map((item) => crewName(item, settings)).join(", ")} writes the diff. Hand that agent the file and the change with pass_task. Do not edit the file yourself.`
+            : "");
   const journal = String(extras.journal || "").trim();
   const recent = journal ? `Recent work in this folder, shared by every agent:\n${journal}` : "";
   const memory = String(extras.memory || "").trim();
@@ -1046,8 +1295,8 @@ ${others.map((item) => `- ${crewName(item, settings)}`).join("\n")}`
     : (extras.earlier
       ? `${extras.earlier} earlier messages in this session stay saved. This turn sees the recent part.`
       : "");
-  const voice = agent?.systemPrompt || (role === "apply" ? "You apply a change to one file." : "You are a local coding assistant.");
-  if (role === "apply" || (compact && !targets.length)) {
+  const voice = agent?.systemPrompt || (role === "apply" || role === "implementer" ? "You apply a change to one file." : "You are a local coding assistant.");
+  if (role === "apply" || role === "implementer" || role === "verifier" || role === "reviewer" || (compact && !targets.length)) {
     return [voice, roleLine, names].filter(Boolean).join("\n\n");
   }
   if (compact) return [voice, roleLine, names, roster, nudge].filter(Boolean).join("\n\n");
@@ -1202,7 +1451,7 @@ async function passTask({ settings, agents, from, args, workspace, emit, mode, r
     if (tree) {
       try {
         if (!signal?.aborted) {
-          const copied = await publishWorktree(workspace, tree, run, { name: target.name, color: target.color }, commitFile);
+          const copied = await publishWorktree(workspace, tree, run, { name: target.name, color: target.color }, commitFile, commitDelete);
           for (const saved of copied) {
             if (saved.conflict) {
               sendEvent({ type: "worktree", conflict: saved.path, agentId: target.id, agent: target.name, trees: listWorktrees() });
@@ -1516,8 +1765,9 @@ function mountUi() {
 
 export function startServer(port = Number(process.env.PORT || 8787)) {
   mountUi();
+  apiToken();
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, "127.0.0.1", () => {
+  const server = app.listen(port, "127.0.0.1", () => {
       const address = server.address();
       const actual = address && typeof address === "object" ? address.port : port;
       console.log(`Flint API on http://127.0.0.1:${actual}`);

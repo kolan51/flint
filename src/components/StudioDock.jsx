@@ -3,7 +3,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useApp } from "../store.jsx";
-import { api } from "../api.js";
+import { api, streamUrl } from "../api.js";
 import { readEditorProblems, subscribeEditorProblems } from "../editorProblems.js";
 import PanelIcon from "./PanelIcon.jsx";
 import FieldSelect from "./FieldSelect.jsx";
@@ -22,7 +22,7 @@ function ShellPane({ commands, decideCommand, setCommandMode, settings, termLog 
 
   useEffect(() => {
     let gone = false;
-    const pull = () => api.tasks().then((data) => {
+    const pull = () => api.jobs().then((data) => {
       if (!gone) setJobs(data.jobs || []);
     }).catch(() => {});
     pull();
@@ -56,7 +56,7 @@ function ShellPane({ commands, decideCommand, setCommandMode, settings, termLog 
       setSession(data.id);
       setPty(Boolean(data.pty));
       setLog("");
-      source = new EventSource(`/api/terminal/stream?id=${encodeURIComponent(data.id)}`);
+      source = new EventSource(streamUrl(`/api/terminal/stream?id=${encodeURIComponent(data.id)}`));
       source.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
@@ -285,6 +285,8 @@ export default function StudioDock() {
     loadCheckouts,
     activity,
     agents,
+    activeAgentId,
+    setModal,
   } = useApp();
   const [commitMessage, setCommitMessage] = useState("");
   const [branchName, setBranchName] = useState("");
@@ -298,7 +300,23 @@ export default function StudioDock() {
   const [testing, setTesting] = useState(false);
   const [problems, setProblems] = useState([]);
   const [problemNote, setProblemNote] = useState("");
+  const [flintTasks, setFlintTasks] = useState([]);
+  const [taskDraft, setTaskDraft] = useState("");
+  const [taskNote, setTaskNote] = useState("");
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [taskLive, setTaskLive] = useState("");
   const open = reviews.filter((item) => item.status === "open");
+
+  async function refreshFlintTasks() {
+    try {
+      const data = await api.tasks();
+      setFlintTasks(data.tasks || []);
+      setTaskNote("");
+    } catch (err) {
+      setTaskNote(err.message || "Tasks could not load.");
+    }
+  }
 
   async function refreshBranches() {
     try {
@@ -374,6 +392,7 @@ export default function StudioDock() {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
   const moreTabs = [
+    { id: "tasks", label: "Tasks" },
     { id: "problems", label: problems.length ? `Problems ${problems.length}` : "Problems" },
     { id: "search", label: "Search" },
     { id: "notes", label: "Notes" },
@@ -420,6 +439,7 @@ export default function StudioDock() {
                     setMoreOpen(false);
                     if (item.id === "problems") refreshProblems();
                     if (item.id === "notes") refreshNotes();
+                    if (item.id === "tasks") refreshFlintTasks();
                     setDock(item.id);
                   }}
                 >
@@ -507,6 +527,88 @@ export default function StudioDock() {
             ))
           )}
           </>
+        )}
+        {dock === "tasks" && (
+          <TaskPane
+            tasks={flintTasks}
+            selectedId={selectedTaskId}
+            onSelect={setSelectedTaskId}
+            draft={taskDraft}
+            note={taskNote}
+            busy={taskBusy}
+            onDraft={setTaskDraft}
+            onRefresh={refreshFlintTasks}
+            onPropose={async () => {
+              setTaskBusy(true);
+              try {
+                const data = await api.proposeTask({ request: taskDraft, agentId: activeAgentId });
+                setTaskDraft("");
+                setSelectedTaskId(data.task?.id || "");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onApprove={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.approveTask(id);
+                await api.taskStatus(id, "implementing");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            live={taskLive}
+            onOpenBoard={() => setModal("tasks")}
+            onRun={async (id) => {
+              setTaskBusy(true);
+              setTaskLive("Starting crew…");
+              try {
+                await api.runTask(id, (event) => {
+                  if (event.type === "status" || event.type === "activity") setTaskLive(event.text || event.type);
+                  if (event.type === "verification") {
+                    const report = event.report || {};
+                    setTaskLive(`Verify · ${report.passed?.length || 0} passed, ${report.failed?.length || 0} failed`);
+                  }
+                  if (event.type === "done" && event.stopped) setTaskNote(event.stopped);
+                  if (event.type === "error") setTaskNote(event.error || "Crew failed");
+                });
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+                setTaskLive("");
+              }
+            }}
+            onVerify={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.verifyTask(id);
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+            onComplete={async (id) => {
+              setTaskBusy(true);
+              try {
+                await api.taskStatus(id, "completed");
+                await refreshFlintTasks();
+              } catch (err) {
+                setTaskNote(err.message);
+              } finally {
+                setTaskBusy(false);
+              }
+            }}
+          />
         )}
         {dock === "problems" && (
           problems.length === 0 ? (
@@ -622,6 +724,114 @@ export default function StudioDock() {
         )}
       </div>
     </section>
+  );
+}
+
+function TaskPane({ tasks, selectedId, onSelect, draft, note, busy, live, onDraft, onRefresh, onPropose, onApprove, onRun, onVerify, onComplete, onOpenBoard }) {
+  const selected = tasks.find((task) => task.id === selectedId) || tasks[0] || null;
+  const report = selected?.verificationReport;
+  const activity = [...(selected?.history || [])].reverse().slice(0, 8);
+  return (
+    <>
+      <p className="dock-note">
+        Task workspace: propose, approve, run the crew (live Architect + Implementer turns), inspect verification, then complete.
+        {" "}
+        <button type="button" className="ghost" onClick={onOpenBoard}>Open full Tasks board</button>
+      </p>
+      {live ? <p className="dock-note"><b>Live</b> · {live}</p> : null}
+      <form
+        className="dock-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onPropose();
+        }}
+      >
+        <input
+          value={draft}
+          onChange={(event) => onDraft(event.target.value)}
+          placeholder="Add user authentication to my application"
+          aria-label="Task request"
+        />
+        <button className="btn" type="submit" disabled={busy || !draft.trim()}>Propose</button>
+        <button className="ghost" type="button" disabled={busy} onClick={onRefresh}>Refresh</button>
+      </form>
+      {note ? <p className="dock-note">{note}</p> : null}
+      <div className="hit-list">
+        {tasks.map((task) => (
+          <button
+            type="button"
+            key={task.id}
+            className="hit"
+            onClick={() => onSelect(task.id)}
+            style={selected?.id === task.id ? { outline: "1px solid var(--line)" } : undefined}
+          >
+            <b>{task.title}</b>
+            <span>{task.status.replaceAll("_", " ")}</span>
+          </button>
+        ))}
+      </div>
+      {selected && (
+        <article className="note-row" style={{ display: "grid", gap: 8, padding: "12px 0" }}>
+          <p className="dock-note"><b>Phase</b> · {selected.status.replaceAll("_", " ")}</p>
+          {selected.acceptance?.length ? (
+            <p className="dock-note"><b>Acceptance</b> · {selected.acceptance.join(" · ")}</p>
+          ) : null}
+          {selected.plan?.length ? (
+            <p className="dock-note"><b>Plan</b> · {selected.plan.join(" · ")}</p>
+          ) : null}
+          {selected.files?.length ? (
+            <p className="dock-note"><b>Files</b> · {selected.files.join(", ")}</p>
+          ) : null}
+          {selected.assignment && (
+            <p className="dock-note">
+              <b>Crew</b>
+              {" · "}
+              {[
+                selected.assignment.architect && `Architect ${selected.assignment.architect.name}`,
+                selected.assignment.implementer && `Implementer ${selected.assignment.implementer.name}`,
+                selected.assignment.verifier && `Verifier ${selected.assignment.verifier.name}`,
+                selected.assignment.reviewer && `Reviewer ${selected.assignment.reviewer.name}`,
+              ].filter(Boolean).join(" · ") || "Unassigned"}
+            </p>
+          )}
+          {report ? (
+            <p className="dock-note">
+              <b>Verification</b>
+              {" · "}
+              {report.passed?.length || 0} passed, {report.failed?.length || 0} failed, {report.skipped?.length || 0} skipped
+              {report.unavailable?.length ? `, ${report.unavailable.length} unavailable` : ""}
+              {report.durationMs != null ? ` · ${report.durationMs} ms` : ""}
+            </p>
+          ) : (
+            <p className="dock-note"><b>Verification</b> · not verified</p>
+          )}
+          {activity.length ? (
+            <div className="hit-list">
+              {activity.map((item, index) => (
+                <div key={`${item.at}-${index}`} className="hit" style={{ cursor: "default" }}>
+                  <b>{item.job || "task"}</b>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="dock-form">
+            {(selected.status === "awaiting_approval" || selected.status === "draft") && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onApprove(selected.id)}>Approve</button>
+            )}
+            {(selected.status === "approved" || selected.status === "implementing" || selected.status === "blocked" || selected.status === "failed") && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onRun(selected.id)}>Run crew</button>
+            )}
+            {(selected.status === "implementing" || selected.status === "blocked" || selected.status === "approved") && (
+              <button type="button" className="ghost" disabled={busy} onClick={() => onVerify(selected.id)}>Verify only</button>
+            )}
+            {selected.status === "review" && (
+              <button type="button" className="btn" disabled={busy} onClick={() => onComplete(selected.id)}>Complete</button>
+            )}
+          </div>
+        </article>
+      )}
+    </>
   );
 }
 

@@ -44,6 +44,10 @@ export const defaultSettings = {
   prompt: {
     compact: false,
   },
+  routing: {
+    mode: "custom",
+    roles: {},
+  },
   updates: {
     check: true,
     repo: "kolan51/flint",
@@ -108,6 +112,21 @@ function normalizeMcp(raw) {
 
 function normalizePrompt(raw) {
   return { compact: raw?.compact === true };
+}
+
+function normalizeRouting(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const mode = ["local_only", "balanced", "quality", "custom"].includes(source.mode) ? source.mode : "custom";
+  const roles = source.roles && typeof source.roles === "object" ? source.roles : {};
+  return {
+    mode,
+    roles: {
+      architect: String(roles.architect || ""),
+      implementer: String(roles.implementer || ""),
+      verifier: String(roles.verifier || ""),
+      reviewer: String(roles.reviewer || ""),
+    },
+  };
 }
 
 function normalizeCommands(raw) {
@@ -205,6 +224,7 @@ export async function loadSettings() {
     search: normalizeSearch(saved.search),
     commands: normalizeCommands(saved.commands),
     prompt: normalizePrompt(saved.prompt),
+    routing: normalizeRouting(saved.routing),
     updates: normalizeUpdates(saved.updates),
     completion: normalizeCompletion(saved.completion),
     check: normalizeCheck(saved.check),
@@ -227,6 +247,7 @@ export async function saveSettings(next) {
     search: normalizeSearch(next.search),
     commands: normalizeCommands(next.commands),
     prompt: normalizePrompt(next.prompt),
+    routing: normalizeRouting(next.routing),
     updates: normalizeUpdates(next.updates),
     completion: normalizeCompletion(next.completion),
     check: normalizeCheck(next.check),

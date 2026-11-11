@@ -8,6 +8,7 @@ import RightPane from "./components/RightPane.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import AgentStudio from "./components/AgentStudio.jsx";
+import TasksBoard from "./components/TasksBoard.jsx";
 import About from "./components/About.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import AskDialog from "./components/AskDialog.jsx";
@@ -189,6 +190,7 @@ export default function App() {
       <StatusBar />
       {modal === "settings" && <SettingsModal />}
       {modal === "agents" && <AgentStudio />}
+      {modal === "tasks" && <TasksBoard />}
       {modal === "about" && <About />}
       {modal === "palette" && <CommandPalette />}
       <AskDialog />

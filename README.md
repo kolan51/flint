@@ -110,16 +110,29 @@ macOS blocks the first open for the same reason: there is no Apple certificate o
 
 Or [open the site](https://kolan51.github.io/flint/) and press the button for your machine. Same files.
 
+## Flint Tasks
+
+For a larger change, open **More → Tasks** in the dock. Propose a request, approve it, run the crew, and inspect the verification evidence. A task cannot complete on the model’s word alone. Small chat edits still work without a task.
+
+Crew seats now include Architect, Implementer, Verifier, and Reviewer. **Run crew** streams live Architect and Implementer model turns, then real verification. Open the full Tasks board from the title bar or `Ctrl+K`. Settings → Model routing can pin each role to an agent, or prefer Local only / Balanced / Quality first.
+
+Engineering notes, security boundaries, and the remaining roadmap live in [`docs/ENGINEERING.md`](docs/ENGINEERING.md). Offline verification of the task path:
+
+```bash
+node benchmarks/run.mjs
+```
+
 ## From this repo
 
 ```bash
 npm install
+npm test
 npm run desktop
 ```
 
 `electron/` is the window. `server/` is the API on this machine. `src/` is the studio. `site/` is the page.
 
-`Ctrl+Shift+O` opens a folder. `Ctrl+K` is the command list. Enter sends.
+`Ctrl+Shift+O` opens a folder. `Ctrl+K` is the command list. Enter sends. The API only answers on localhost and needs the window’s boot token.
 
 ## Your stuff stays put
 

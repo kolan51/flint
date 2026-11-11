@@ -56,6 +56,10 @@ export async function readFile(root, rel) {
 export async function writeFile(root, rel, content) {
   const file = resolveSafe(root, rel);
   await fs.mkdir(path.dirname(file), { recursive: true });
+  if (Buffer.isBuffer(content)) {
+    await fs.writeFile(file, content);
+    return { path: rel.replaceAll("\\", "/"), bytes: content.length };
+  }
   await fs.writeFile(file, content, "utf8");
   return { path: rel.replaceAll("\\", "/"), bytes: Buffer.byteLength(content) };
 }

@@ -211,19 +211,34 @@ export function assignWorkTool(workers = []) {
 const reading = [listDir, readFileTool, searchCode, webSearchTool, webFetchTool, gitStatusTool, gitDiffTool];
 const writing = [editFile, writeFileTool, runCommandTool];
 const applying = [listDir, readFileTool, searchCode, editFile, writeFileTool];
+const verifying = [listDir, readFileTool, searchCode, runCommandTool, gitStatusTool, gitDiffTool];
+const reviewing = [listDir, readFileTool, searchCode, gitStatusTool, gitDiffTool];
+
+const SEATS = new Set(["apply", "lead", "chat", "architect", "implementer", "verifier", "reviewer"]);
 
 export function agentRole(agent) {
   const role = String(agent?.role || "").toLowerCase();
-  if (role === "apply" || role === "lead" || role === "chat") return role;
-  return /senior|main|lead|manager/.test(String(agent?.name || "").toLowerCase()) ? "lead" : "chat";
+  if (SEATS.has(role)) return role;
+  const name = String(agent?.name || "").toLowerCase();
+  if (/architect|planner/.test(name)) return "architect";
+  if (/implement|builder|coder|patch/.test(name)) return "implementer";
+  if (/verif|checker|tester/.test(name)) return "verifier";
+  if (/review/.test(name)) return "reviewer";
+  if (/senior|main|lead|manager/.test(name)) return "lead";
+  return "chat";
 }
 
 export function toolsFor(mode, allowPass, workers = [], shape = "full") {
-  if (shape === "apply") return applying;
-  const crew = (workers || []).filter((agent) => agentRole(agent) !== "apply");
+  if (shape === "apply" || shape === "implement") return applying;
+  if (shape === "verify") return verifying;
+  if (shape === "review") return reviewing;
+  const crew = (workers || []).filter((agent) => {
+    const role = agentRole(agent);
+    return role !== "apply" && role !== "implementer";
+  });
   const pass = allowPass ? [passTask, assignWorkTool(crew)] : [];
   if (mode === "plan") return [...reading, ...pass];
-  if (shape === "decide") return [...reading, runCommandTool, ...pass];
+  if (shape === "decide" || shape === "architect") return [...reading, runCommandTool, ...pass];
   return [...reading, ...writing, ...pass];
 }
 
